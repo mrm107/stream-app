@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { RTMP_URL, obsStreamKey } from "../config";
 import type { Channel, Stream } from "../api/types";
 
 // Creator studio (auth-gated). Two states:
@@ -79,11 +81,29 @@ export default function Studio() {
         </section>
       ) : (
         <>
-          {streamKey && (
+          {streamKey ? (
             <section className="card highlight">
-              <h2>Your stream key</h2>
-              <p className="muted">Shown only once — save it in OBS now.</p>
-              <code className="streamkey">{streamKey}</code>
+              <h2>Set up OBS</h2>
+              <p className="muted">
+                In OBS → Settings → Stream, pick <strong>Custom…</strong> and paste
+                these. The stream key is shown only once — save it now.
+              </p>
+              <CopyRow label="Server" value={RTMP_URL} />
+              <CopyRow label="Stream key" value={obsStreamKey(channel.id, streamKey)} />
+              <p className="muted small">
+                The key travels inside the RTMP URL, so it never appears in the
+                public playback link.
+              </p>
+            </section>
+          ) : (
+            <section className="card">
+              <h2>Set up OBS</h2>
+              <CopyRow label="Server" value={RTMP_URL} />
+              <p className="muted small">
+                Your stream key is shown only once, at channel creation. In OBS the
+                “Stream Key” field must be{" "}
+                <code>{`${channel.id}?key=<your-key>`}</code>.
+              </p>
             </section>
           )}
 
@@ -101,6 +121,17 @@ export default function Studio() {
                 {stream.live ? `🔴 LIVE — "${stream.title}"` : `⏹ Ended stream #${stream.id}`}
               </p>
             )}
+            {stream?.live && (
+              <p>
+                <Link className="navlink" to={`/watch/${channel.id}`}>
+                  ▶ Watch your stream
+                </Link>
+              </p>
+            )}
+            <p className="muted small">
+              Tip: start streaming in OBS first, then click “Start stream”. Your
+              encoder connecting is what actually puts you live.
+            </p>
           </section>
         </>
       )}
@@ -112,4 +143,29 @@ export default function Studio() {
 
 function msg(err: unknown): string {
   return err instanceof ApiRequestError ? err.message : "network error";
+}
+
+// CopyRow shows a labelled, monospaced value with a one-click copy button.
+function CopyRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API needs a secure context; the user can still select manually.
+    }
+  }
+  return (
+    <div className="copy-field">
+      <span className="copy-label">{label}</span>
+      <div className="copy-row">
+        <code className="streamkey">{value}</code>
+        <button type="button" className="ghost small" onClick={copy}>
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
 }

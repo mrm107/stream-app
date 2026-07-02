@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import HlsPlayer, { type PlayerStatus } from "../components/HlsPlayer";
+import { hlsUrl } from "../config";
 import type { Channel } from "../api/types";
 
 // Public watch page. Anyone can watch. Only the chat box requires a login —
@@ -10,6 +12,7 @@ export default function Watch() {
   const { channelId } = useParams();
   const { session } = useAuth();
   const [channel, setChannel] = useState<Channel | null>(null);
+  const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("loading");
   const [error, setError] = useState("");
   const [draft, setDraft] = useState("");
 
@@ -23,15 +26,25 @@ export default function Watch() {
       );
   }, [channelId]);
 
+  const isLive = playerStatus === "playing";
+
   return (
     <main className="watch">
       <section className="player-col">
-        <div className="player">
-          {/* Real HLS player goes here once the media plane is wired. */}
-          <span className="muted">▶ video stream (HLS player placeholder)</span>
-        </div>
+        {channelId ? (
+          <HlsPlayer src={hlsUrl(channelId)} onStatus={setPlayerStatus} />
+        ) : (
+          <div className="player">
+            <div className="player-overlay">
+              <span className="muted">No channel selected</span>
+            </div>
+          </div>
+        )}
         <div className="watch-meta">
-          <h1>{channel?.title || "Untitled stream"}</h1>
+          <h1>
+            {isLive && <span className="live-pill">LIVE</span>}
+            {channel?.title || "Untitled stream"}
+          </h1>
           {error && <p className="error">{error}</p>}
           {channel && (
             <p className="muted">{channel.follower_count} followers</p>
