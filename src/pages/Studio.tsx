@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { RTMP_URL, obsStreamKey } from "../config";
+import { RTMP_URL, obsStreamKey } from "../util/constant";
 import type { Channel, Stream } from "../api/types";
 
 // Creator studio (auth-gated). Two states:

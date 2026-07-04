@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import HlsPlayer, { type PlayerStatus } from "../components/HlsPlayer";
-import { hlsUrl } from "../config";
+import { hlsUrl } from "../util/constant";
 import type { Channel } from "../api/types";
 
 // Public watch page. Anyone can watch. Only the chat box requires a login —

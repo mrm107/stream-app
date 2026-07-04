@@ -6,9 +6,12 @@ import type {
   Stream,
 } from "./types";
 
+import { API_URL } from "../util/constant";
+
 // All requests go through Vite's /api proxy to the Go backend (see
-// vite.config.ts), so there is no CORS and no hardcoded host here.
-const BASE = "/api";
+// vite.config.ts), so there is no CORS and no hardcoded host here. The base
+// path is centralized in util/constant.ts and sourced from env.
+const BASE = API_URL;
 
 // ApiRequestError carries the backend's stable error code plus a human message.
 export class ApiRequestError extends Error {
