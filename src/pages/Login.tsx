@@ -18,7 +18,7 @@ export default function Login() {
     setBusy(true);
     try {
       const res = await api.auth.login({ identifier, password });
-      signIn({ token: res.token, user: res.user });
+      signIn({ token: res.token, refreshToken: res.refresh_token, user: res.user });
       navigate("/");
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "network error");

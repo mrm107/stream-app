@@ -12,6 +12,13 @@ export function hlsUrl(channelId: number | string): string {
   return `${HLS_URL}/${channelId}.m3u8`;
 }
 
+// flvUrl builds the HTTP-FLV URL for a channel. FLV is served from the same
+// SRS base as HLS and has much lower latency (~1-2s vs ~5-15s), but needs
+// mpegts.js to play in the browser (see FlvPlayer).
+export function flvUrl(channelId: number | string): string {
+  return `${HLS_URL}/${channelId}.flv`;
+}
+
 // obsStreamKey composes what the broadcaster pastes into OBS's "Stream Key"
 // field: the channel id plus the secret key as a query param. Keeping the key
 // in the query string is what stops it leaking into the public HLS path.

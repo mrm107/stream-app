@@ -24,26 +24,96 @@ export class ApiRequestError extends Error {
   }
 }
 
-// token is held in memory and mirrored to localStorage by the auth store.
-let token: string | null = null;
-export function setToken(t: string | null) {
-  token = t;
+// Access + refresh tokens are held in memory and mirrored to localStorage by
+// the auth store. The access token is sent on every request; the refresh token
+// is used only to mint a new access token when the current one expires (401).
+let accessToken: string | null = null;
+let refreshToken: string | null = null;
+
+export function setTokens(t: { token: string; refresh: string } | null) {
+  accessToken = t?.token ?? null;
+  refreshToken = t?.refresh ?? null;
+}
+
+// Callbacks let the auth store react to token rotation (persist the new pair)
+// and to an unrecoverable session (refresh rejected → sign the user out).
+let onTokensRotated: ((r: AuthResponse) => void) | null = null;
+let onSessionExpired: (() => void) | null = null;
+export function setAuthCallbacks(cbs: {
+  onTokensRotated?: (r: AuthResponse) => void;
+  onSessionExpired?: () => void;
+}) {
+  onTokensRotated = cbs.onTokensRotated ?? null;
+  onSessionExpired = cbs.onSessionExpired ?? null;
+}
+
+// The auth endpoints must never trigger the refresh-on-401 interceptor: a 401
+// from login is a real credential error, and refresh/logout manage tokens
+// themselves. A 401 from any OTHER path means "access token expired → refresh".
+const AUTH_PATHS = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/logout",
+]);
+
+// Single-flight: many requests can 401 at once, but only one refresh should run.
+// Concurrent callers await the same in-flight promise.
+let refreshing: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshToken) return false;
+  if (!refreshing) {
+    refreshing = (async () => {
+      try {
+        const res = await fetch(BASE + "/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (!res.ok) {
+          // 401/invalid → refresh token is dead; the session is over.
+          setTokens(null);
+          onSessionExpired?.();
+          return false;
+        }
+        const data = (await res.json()) as AuthResponse;
+        setTokens({ token: data.token, refresh: data.refresh_token });
+        onTokensRotated?.(data);
+        return true;
+      } catch {
+        // Network blip: don't destroy the session, just fail this attempt.
+        return false;
+      } finally {
+        refreshing = null;
+      }
+    })();
+  }
+  return refreshing;
 }
 
 async function request<T>(
   method: string,
   path: string,
-  body?: unknown
+  body?: unknown,
+  isRetry = false
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
   const res = await fetch(BASE + path, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+
+  // Access token expired → transparently refresh once and replay the request.
+  if (res.status === 401 && !isRetry && refreshToken && !AUTH_PATHS.has(path)) {
+    if (await refreshAccessToken()) {
+      return request<T>(method, path, body, true);
+    }
+  }
 
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
@@ -69,6 +139,15 @@ export const api = {
 
     login: (input: { identifier: string; password: string }) =>
       request<AuthResponse>("POST", "/auth/login", input),
+
+    // Exchange a refresh token for a fresh pair (also called automatically by
+    // the 401 interceptor above).
+    refresh: (refresh_token: string) =>
+      request<AuthResponse>("POST", "/auth/refresh", { refresh_token }),
+
+    // Revoke a refresh token server-side. Idempotent; safe to ignore failures.
+    logout: (refresh_token: string) =>
+      request<null>("POST", "/auth/logout", { refresh_token }),
   },
 
   streams: {

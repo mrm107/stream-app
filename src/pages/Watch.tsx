@@ -3,8 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import HlsPlayer, { type PlayerStatus } from "../components/HlsPlayer";
-import { hlsUrl } from "../util/constant";
+import FlvPlayer from "../components/FlvPlayer";
+import { flvUrl, hlsUrl } from "../util/constant";
 import type { Channel } from "../api/types";
+
+// Playback protocol the viewer can toggle between. HLS is more compatible and
+// robust; FLV is lower-latency (~1-2s) where the SRS http_remux is enabled.
+type Protocol = "hls" | "flv";
 
 // Public watch page. Anyone can watch. Only the chat box requires a login —
 // that is the core rule from the product spec.
@@ -13,6 +18,7 @@ export default function Watch() {
   const { session } = useAuth();
   const [channel, setChannel] = useState<Channel | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("loading");
+  const [protocol, setProtocol] = useState<Protocol>("hls");
   const [error, setError] = useState("");
   const [draft, setDraft] = useState("");
 
@@ -32,11 +38,36 @@ export default function Watch() {
     <main className="watch">
       <section className="player-col">
         {channelId ? (
-          <HlsPlayer src={hlsUrl(channelId)} onStatus={setPlayerStatus} />
+          protocol === "hls" ? (
+            <HlsPlayer src={hlsUrl(channelId)} onStatus={setPlayerStatus} />
+          ) : (
+            <FlvPlayer src={flvUrl(channelId)} onStatus={setPlayerStatus} />
+          )
         ) : (
           <div className="player">
             <div className="player-overlay">
               <span className="muted">No channel selected</span>
+            </div>
+          </div>
+        )}
+
+        {/* Protocol toggle: HLS (compatible, higher latency) vs FLV (low latency). */}
+        {channelId && (
+          <div className="player-controls">
+            <span className="muted small">Playback:</span>
+            <div className="protocol-toggle">
+              <button
+                className={`small${protocol === "hls" ? "" : " ghost"}`}
+                onClick={() => setProtocol("hls")}
+              >
+                HLS
+              </button>
+              <button
+                className={`small${protocol === "flv" ? "" : " ghost"}`}
+                onClick={() => setProtocol("flv")}
+              >
+                FLV · low latency
+              </button>
             </div>
           </div>
         )}

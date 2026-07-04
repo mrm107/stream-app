@@ -126,6 +126,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 button.ghost { background: transparent; border: 1px solid #3a3a3d; }
 button.small { padding: 6px 12px; font-size: 13px; }
 
+.player-controls {
+  display: flex; gap: 10px; align-items: center; margin-top: 8px;
+}
+.protocol-toggle { display: flex; gap: 6px; }
+
 .row { display: flex; gap: 12px; align-items: center; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }

@@ -25,7 +25,7 @@ export default function Register() {
         password,
         display_name: displayName || undefined,
       });
-      signIn({ token: res.token, user: res.user });
+      signIn({ token: res.token, refreshToken: res.refresh_token, user: res.user });
       navigate("/"); // no channel is created — land on browse
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : "network error");

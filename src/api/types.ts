@@ -9,9 +9,11 @@ export interface User {
   role: number; // 0 = user, 1 = admin
 }
 
-// Register and login now both just authenticate — no channel is created.
+// Register, login, and refresh all return the same shape: a short-lived access
+// token, a long-lived refresh token, and the user. No channel is created.
 export interface AuthResponse {
   token: string;
+  refresh_token: string;
   user: User;
 }
 
