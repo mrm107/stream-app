@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
 import HlsPlayer, { type PlayerStatus } from "../components/HlsPlayer";
 import FlvPlayer from "../components/FlvPlayer";
+import ChatBox from "../components/ChatBox";
 import { flvUrl, hlsUrl } from "../util/constant";
 import type { Channel } from "../api/types";
 
@@ -15,12 +15,10 @@ type Protocol = "hls" | "flv";
 // that is the core rule from the product spec.
 export default function Watch() {
   const { channelId } = useParams();
-  const { session } = useAuth();
   const [channel, setChannel] = useState<Channel | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("loading");
   const [protocol, setProtocol] = useState<Protocol>("hls");
   const [error, setError] = useState("");
-  const [draft, setDraft] = useState("");
 
   useEffect(() => {
     if (!channelId) return;
@@ -32,16 +30,25 @@ export default function Watch() {
       );
   }, [channelId]);
 
-  const isLive = playerStatus === "playing";
+  // Buffering is still "live" — a brief stall must not flicker the LIVE pill.
+  const isLive = playerStatus === "playing" || playerStatus === "buffering";
 
   return (
     <main className="watch">
       <section className="player-col">
         {channelId ? (
           protocol === "hls" ? (
-            <HlsPlayer src={hlsUrl(channelId)} onStatus={setPlayerStatus} />
+            <HlsPlayer
+              src={hlsUrl(channelId)}
+              title={channel?.title}
+              onStatus={setPlayerStatus}
+            />
           ) : (
-            <FlvPlayer src={flvUrl(channelId)} onStatus={setPlayerStatus} />
+            <FlvPlayer
+              src={flvUrl(channelId)}
+              title={channel?.title}
+              onStatus={setPlayerStatus}
+            />
           )
         ) : (
           <div className="player">
@@ -83,34 +90,7 @@ export default function Watch() {
         </div>
       </section>
 
-      <aside className="chat-col">
-        <div className="chat-header">Stream chat</div>
-        <div className="chat-messages">
-          <p className="muted small">Chat messages will appear here.</p>
-        </div>
-
-        {/* Chat input is gated: only logged-in users can send. */}
-        {session ? (
-          <form
-            className="chat-input"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setDraft(""); // wiring to the chat service comes next
-            }}
-          >
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Send a message"
-            />
-            <button className="small" disabled={!draft}>Chat</button>
-          </form>
-        ) : (
-          <div className="chat-locked">
-            <Link to="/login">Log in</Link> to chat
-          </div>
-        )}
-      </aside>
+      <ChatBox channelId={channelId} />
     </main>
   );
 }

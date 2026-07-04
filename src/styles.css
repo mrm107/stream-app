@@ -81,8 +81,42 @@ h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em; color: 
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none; /* never block the video controls */
-  background: radial-gradient(circle, rgba(0,0,0,0.2), rgba(0,0,0,0.6));
+  background:
+    radial-gradient(ellipse at center, rgba(30,30,40,0.35), rgba(0,0,0,0.85)),
+    linear-gradient(135deg, #14141a 0%, #0b0b0f 100%);
 }
+/* Buffering: keep the frozen frame visible — just a faint scrim + spinner. */
+.player-overlay--buffering {
+  background: rgba(0, 0, 0, 0.25);
+}
+.player-overlay--buffering .player-spinner {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+}
+.player-state {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center; padding: 24px;
+}
+/* Connecting spinner */
+.player-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.15);
+  border-top-color: var(--accent);
+  animation: player-spin 0.8s linear infinite;
+}
+@keyframes player-spin { to { transform: rotate(360deg); } }
+/* Offline card */
+.offline-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: #cfcfd6; font-size: 12px; font-weight: 700; letter-spacing: 0.12em;
+  padding: 6px 12px; border-radius: 999px;
+}
+.offline-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+  animation: offline-pulse 2s ease-in-out infinite;
+}
+@keyframes offline-pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+.offline-title { font-size: 17px; font-weight: 600; color: #f0f0f2; }
 .watch-meta { padding: 16px 24px; border-top: 1px solid var(--border); }
 .watch-meta h1 { margin: 0 0 6px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
 .live-pill {
@@ -90,9 +124,27 @@ h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em; color: 
   padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em;
 }
 
-.chat-col { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
-.chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; text-transform: uppercase; color: var(--muted); }
-.chat-messages { flex: 1; padding: 12px 16px; overflow-y: auto; }
+.chat-col { display: flex; flex-direction: column; border-left: 1px solid var(--border); min-height: 0; }
+.chat-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 13px; text-transform: uppercase; color: var(--muted);
+}
+.chat-status { display: flex; align-items: center; gap: 6px; text-transform: none; }
+.chat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.chat-dot--open { background: #22c55e; }
+.chat-dot--connecting { background: #eab308; }
+.chat-dot--closed { background: var(--error); }
+.chat-messages { flex: 1; padding: 12px 16px; overflow-y: auto; min-height: 0; }
+
+.chat-msg { margin-bottom: 6px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+.chat-msg-user { font-weight: 600; margin-right: 6px; }
+.chat-msg-user::after { content: ":"; color: var(--muted); font-weight: 400; }
+.chat-msg-text { color: var(--text, inherit); }
+.chat-msg--pending { opacity: 0.55; }
+.chat-msg--failed { opacity: 0.8; }
+.chat-msg-fail { color: var(--error); font-size: 12px; }
+
 .chat-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); }
 .chat-input input { flex: 1; }
 .chat-locked { padding: 16px; border-top: 1px solid var(--border); text-align: center; color: var(--muted); }

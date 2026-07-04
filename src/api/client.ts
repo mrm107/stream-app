@@ -1,5 +1,7 @@
 import type {
   AuthResponse,
+  ChatBatchFrame,
+  ChatSendResponse,
   Channel,
   CreateChannelResponse,
   LiveStream,
@@ -169,5 +171,20 @@ export const api = {
 
     stopStream: (id: number) =>
       request<Stream>("POST", `/channels/${id}/stream/stop`),
+  },
+
+  chat: {
+    // Send a message (auth required). Returns the assigned seq/id/ts so the
+    // client can reconcile its optimistic echo. Reading is the WebSocket path.
+    send: (channelId: number | string, text: string) =>
+      request<ChatSendResponse>(
+        "POST",
+        `/channels/${channelId}/chat/messages`,
+        { text }
+      ),
+
+    // Public scrollback — used to seed / re-anchor history.
+    recent: (channelId: number | string) =>
+      request<ChatBatchFrame>("GET", `/channels/${channelId}/chat/recent`),
   },
 };

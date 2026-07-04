@@ -19,6 +19,17 @@ export function flvUrl(channelId: number | string): string {
   return `${HLS_URL}/${channelId}.flv`;
 }
 
+// chatWsUrl builds the WebSocket URL for a channel's live chat. The read path is
+// a WS on the API host (GET /ws/chat/<id>); the token rides in the query string
+// because browsers can't set headers on a WS handshake (anonymous = read-only,
+// so token is optional). http(s):// is rewritten to ws(s)://.
+export function chatWsUrl(channelId: number | string, token?: string): string {
+  const base = API_URL || window.location.origin;
+  const wsBase = base.replace(/^http/, "ws"); // http->ws, https->wss
+  const query = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${wsBase}/ws/chat/${channelId}${query}`;
+}
+
 // obsStreamKey composes what the broadcaster pastes into OBS's "Stream Key"
 // field: the channel id plus the secret key as a query param. Keeping the key
 // in the query string is what stops it leaking into the public HLS path.

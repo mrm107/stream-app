@@ -59,3 +59,56 @@ export interface ApiError {
   error: string;
   message?: string;
 }
+
+// --- live chat (internal/chat) ---
+
+// Room moderation state (slow mode / followers-only / subs-only).
+export interface RoomMode {
+  slow_seconds?: number;
+  followers_only?: boolean;
+  subscribers_only?: boolean;
+}
+
+// Server-resolved sender identity on a chat message (never client-supplied).
+export interface ChatSender {
+  id: number;
+  name: string;
+  color?: string;
+  badges?: string[];
+}
+
+// One chat line as it arrives over the WebSocket batch.
+export interface ChatMessage {
+  seq: number;
+  user: ChatSender;
+  text: string;
+  ts: number; // unix millis
+}
+
+// Downstream WS frames (tagged by `type`).
+export interface ChatHelloFrame {
+  type: "hello";
+  version: number;
+  room: number;
+  mode: RoomMode;
+  recent: ChatMessage[];
+  count: number;
+  you?: ChatSender | null;
+}
+export interface ChatBatchFrame {
+  type: "batch";
+  messages: ChatMessage[];
+}
+export interface ChatPresenceFrame {
+  type: "presence";
+  count: number;
+}
+export type ChatFrame = ChatHelloFrame | ChatBatchFrame | ChatPresenceFrame;
+
+// POST /channels/{id}/chat/messages → 202 with the assigned seq/id/ts so the
+// client can reconcile its optimistic local echo.
+export interface ChatSendResponse {
+  seq: number;
+  id: string;
+  ts: number;
+}
