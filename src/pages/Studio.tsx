@@ -7,22 +7,38 @@ import type { Channel, Stream } from "../api/types";
 
 // Creator studio (auth-gated). Two states:
 //   - no channel yet  -> show "Create your channel" (lazy channel creation)
-//   - has a channel   -> show go-live controls
+//   - has a channel   -> show the OBS setup (with the stream key) and go-live
+//     controls
 export default function Studio() {
   const { session } = useAuth();
   const [channel, setChannel] = useState<Channel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [streamKey, setStreamKey] = useState<string | null>(null);
+  // null = not loaded yet; "unavailable" = the channel predates encrypted key
+  // storage, so the key can't be shown and must be rotated.
+  const [streamKey, setStreamKey] = useState<string | "unavailable" | null>(null);
   const [stream, setStream] = useState<Stream | null>(null);
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // On mount, ask whether the caller already has a channel.
+  // On mount, ask whether the caller already has a channel, and if so fetch
+  // its stream key for the OBS setup card.
   useEffect(() => {
     api.channels
       .getMine()
-      .then(setChannel)
+      .then(async (ch) => {
+        setChannel(ch);
+        try {
+          const res = await api.channels.getStreamKey();
+          setStreamKey(res.stream_key);
+        } catch (err) {
+          if (err instanceof ApiRequestError && err.code === "key_unavailable") {
+            setStreamKey("unavailable");
+          } else {
+            setError(msg(err));
+          }
+        }
+      })
       .catch((err) => {
         // "no_channel" is expected for viewers — not an error to show.
         if (!(err instanceof ApiRequestError && err.code === "no_channel")) {
@@ -38,7 +54,27 @@ export default function Studio() {
     try {
       const res = await api.channels.createMine();
       setChannel(res.channel);
-      setStreamKey(res.stream_key); // show once
+      setStreamKey(res.stream_key);
+    } catch (err) {
+      setError(msg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Rotating cuts off any encoder using the old key, so it asks first.
+  async function rotateKey() {
+    if (
+      streamKey !== "unavailable" &&
+      !confirm("Generate a new stream key? OBS will stop working until you paste the new one.")
+    ) {
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      const res = await api.channels.rotateStreamKey();
+      setStreamKey(res.stream_key);
     } catch (err) {
       setError(msg(err));
     } finally {
@@ -65,75 +101,85 @@ export default function Studio() {
   if (loading) return <main className="page"><p className="muted">Loading…</p></main>;
 
   return (
-    <main className="page narrow">
-      <h1>Creator studio</h1>
-      <p className="muted">Signed in as {session?.user.username}</p>
+    <main className="page dashboard">
+      <header className="dash-head">
+        <h1 className="page-title">Creator Dashboard</h1>
+        <p className="muted">Signed in as {session?.user.display_name || session?.user.username}</p>
+      </header>
 
       {!channel ? (
-        <section className="card">
-          <h2>Start broadcasting</h2>
+        <section className="panel panel--hero">
+          <h2 className="panel-title">Start broadcasting</h2>
           <p className="muted">
             You don't have a channel yet. Create one to get a stream key and go live.
           </p>
-          <button disabled={busy} onClick={createChannel}>
+          <button className="btn btn--primary" disabled={busy} onClick={createChannel}>
             {busy ? "Creating…" : "Create my channel"}
           </button>
         </section>
       ) : (
-        <>
-          {streamKey ? (
-            <section className="card highlight">
-              <h2>Set up OBS</h2>
-              <p className="muted">
-                In OBS → Settings → Stream, pick <strong>Custom…</strong> and paste
-                these. The stream key is shown only once — save it now.
-              </p>
-              <CopyRow label="Server" value={RTMP_URL} />
-              <CopyRow label="Stream key" value={obsStreamKey(channel.id, streamKey)} />
-              <p className="muted small">
-                The key travels inside the RTMP URL, so it never appears in the
-                public playback link.
-              </p>
-            </section>
-          ) : (
-            <section className="card">
-              <h2>Set up OBS</h2>
-              <CopyRow label="Server" value={RTMP_URL} />
-              <p className="muted small">
-                Your stream key is shown only once, at channel creation. In OBS the
-                “Stream Key” field must be{" "}
-                <code>{`${channel.id}?key=<your-key>`}</code>.
-              </p>
-            </section>
-          )}
-
-          <section className="card">
-            <h2>Go live</h2>
-            <label>Stream title
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What are you playing?" />
+        <div className="dash-grid">
+          <section className="panel">
+            <h2 className="panel-title">Go live</h2>
+            <label className="field">
+              <span>Stream title</span>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What are you streaming today?" maxLength={140} />
             </label>
             <div className="row">
-              <button disabled={busy || !title} onClick={() => go(true)}>Start stream</button>
-              <button className="ghost" disabled={busy} onClick={() => go(false)}>Stop stream</button>
+              <button className="btn btn--primary" disabled={busy || !title} onClick={() => go(true)}>Start stream</button>
+              <button className="btn btn--secondary" disabled={busy} onClick={() => go(false)}>Stop stream</button>
             </div>
             {stream && (
-              <p className={stream.live ? "live" : "muted"}>
-                {stream.live ? `🔴 LIVE — "${stream.title}"` : `⏹ Ended stream #${stream.id}`}
+              <p className="dash-status">
+                {stream.live ? (
+                  <>
+                    <span className="badge-live">LIVE</span> {stream.title}
+                  </>
+                ) : (
+                  <span className="muted">Stream #{stream.id} ended.</span>
+                )}
               </p>
             )}
             {stream?.live && (
-              <p>
-                <Link className="navlink" to={`/watch/${channel.id}`}>
-                  ▶ Watch your stream
-                </Link>
-              </p>
+              <Link className="link" to={`/watch/${channel.id}`}>
+                Watch your stream →
+              </Link>
             )}
             <p className="muted small">
               Tip: start streaming in OBS first, then click “Start stream”. Your
               encoder connecting is what actually puts you live.
             </p>
           </section>
-        </>
+
+          <section className="panel" id="obs">
+            <h2 className="panel-title">Stream setup</h2>
+            <p className="muted">
+              In OBS → Settings → Stream, pick <strong>Custom…</strong> and paste
+              these.
+            </p>
+            <CopyRow label="Server" value={RTMP_URL} />
+            {streamKey === "unavailable" ? (
+              <p className="muted small">
+                This channel's key was created before keys could be shown again.
+                Generate a new one to see it here.
+              </p>
+            ) : streamKey ? (
+              <CopyRow label="Stream key" value={obsStreamKey(channel.id, streamKey)} secret />
+            ) : (
+              <p className="muted small">Loading stream key…</p>
+            )}
+            <div className="row">
+              <button type="button" className="btn btn--secondary btn--sm" disabled={busy || !streamKey} onClick={rotateKey}>
+                {streamKey === "unavailable" ? "Generate stream key" : "Reset stream key"}
+              </button>
+            </div>
+            <p className="muted small">
+              Keep the key private: anyone with it can stream on your channel. It
+              travels inside the RTMP URL, so it never appears in the public
+              playback link. If it leaks, reset it.
+            </p>
+          </section>
+        </div>
       )}
 
       {error && <p className="error">{error}</p>}
@@ -145,9 +191,12 @@ function msg(err: unknown): string {
   return err instanceof ApiRequestError ? err.message : "network error";
 }
 
-// CopyRow shows a labelled, monospaced value with a one-click copy button.
-function CopyRow({ label, value }: { label: string; value: string }) {
+// CopyRow shows a labelled, monospaced value with a one-click copy button. A
+// secret value is masked until revealed, so it doesn't leak on a shared or
+// recorded screen; copying always copies the real value.
+function CopyRow({ label, value, secret = false }: { label: string; value: string; secret?: boolean }) {
   const [copied, setCopied] = useState(false);
+  const [shown, setShown] = useState(!secret);
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
@@ -161,8 +210,13 @@ function CopyRow({ label, value }: { label: string; value: string }) {
     <div className="copy-field">
       <span className="copy-label">{label}</span>
       <div className="copy-row">
-        <code className="streamkey">{value}</code>
-        <button type="button" className="ghost small" onClick={copy}>
+        <code className="copy-value">{shown ? value : "•".repeat(24)}</code>
+        {secret && (
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => setShown((v) => !v)}>
+            {shown ? "Hide" : "Show"}
+          </button>
+        )}
+        <button type="button" className="btn btn--secondary btn--sm" onClick={copy}>
           {copied ? "Copied!" : "Copy"}
         </button>
       </div>

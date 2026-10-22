@@ -35,17 +35,40 @@ export default function Register() {
   }
 
   return (
-    <div className="card center">
-      <h1>Create account</h1>
-      <form onSubmit={onSubmit}>
-        <label>Username<input value={username} onChange={(e) => setUsername(e.target.value)} required minLength={3} maxLength={32} /></label>
-        <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-        <label>Display name<input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="optional" /></label>
-        <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></label>
-        {error && <p className="error">{error}</p>}
-        <button disabled={busy}>{busy ? "Creating…" : "Register"}</button>
-      </form>
-      <p className="muted">Already have an account? <Link to="/login">Log in</Link></p>
+    <div className="auth">
+      <div className="auth-card">
+        <h1 className="auth-title">Join Stream today</h1>
+        <div className="tabs" role="tablist">
+          <Link to="/login" className="tab" role="tab">Log In</Link>
+          <Link to="/register" className="tab tab--active" role="tab" aria-selected>Sign Up</Link>
+        </div>
+        <form className="auth-form" onSubmit={onSubmit}>
+          <label className="field">
+            <span>Username</span>
+            <input value={username} onChange={(e) => setUsername(e.target.value)} required minLength={3} maxLength={32} autoFocus />
+          </label>
+          <label className="field">
+            <span>Email</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </label>
+          <label className="field">
+            <span>Display name <em className="muted">(optional)</em></span>
+            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={64} />
+          </label>
+          <label className="field">
+            <span>Password</span>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+            <small className="muted">At least 8 characters.</small>
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button className="btn btn--primary btn--block" disabled={busy}>
+            {busy ? "Signing up…" : "Sign Up"}
+          </button>
+        </form>
+        <p className="auth-alt">
+          Already have an account? <Link to="/login" className="link">Log in</Link>
+        </p>
+      </div>
     </div>
   );
 }

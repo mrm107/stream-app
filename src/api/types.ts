@@ -29,9 +29,15 @@ export interface LiveStream {
   started_at: string;
 }
 
-// POST /channels response — the only time the stream key is exposed.
+// POST /channels response — the new channel plus its stream key.
 export interface CreateChannelResponse {
   channel: Channel;
+  stream_key: string;
+}
+
+// GET /channels/me/stream-key and POST /channels/me/stream-key/rotate. Only
+// ever returned to the channel's owner.
+export interface StreamKeyResponse {
   stream_key: string;
 }
 

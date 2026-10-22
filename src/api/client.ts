@@ -6,6 +6,7 @@ import type {
   CreateChannelResponse,
   LiveStream,
   Stream,
+  StreamKeyResponse,
 } from "./types";
 
 import { API_URL } from "../util/constant";
@@ -163,8 +164,17 @@ export const api = {
     // Auth — the caller's own channel (404 if not created yet).
     getMine: () => request<Channel>("GET", "/channels/me"),
 
-    // Auth — create my channel; returns the one-time stream key.
+    // Auth — create my channel; returns it with its stream key.
     createMine: () => request<CreateChannelResponse>("POST", "/channels"),
+
+    // Auth — my current stream key. 409 "key_unavailable" for channels made
+    // before keys were stored encrypted: rotating is the only way to get one.
+    getStreamKey: () =>
+      request<StreamKeyResponse>("GET", "/channels/me/stream-key"),
+
+    // Auth — replace my stream key; the old one stops working immediately.
+    rotateStreamKey: () =>
+      request<StreamKeyResponse>("POST", "/channels/me/stream-key/rotate"),
 
     startStream: (id: number, input: { title: string; category_id?: number }) =>
       request<Stream>("POST", `/channels/${id}/stream/start`, input),
