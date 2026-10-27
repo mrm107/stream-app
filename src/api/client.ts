@@ -4,8 +4,9 @@ import type {
   ChatSendResponse,
   Channel,
   CreateChannelResponse,
+  CurrentStream,
   LiveStream,
-  Stream,
+  MirrorsResponse,
   StreamKeyResponse,
 } from "./types";
 
@@ -161,6 +162,10 @@ export const api = {
   channels: {
     get: (id: number) => request<Channel>("GET", `/channels/${id}`),
 
+    // Public — other places the channel plays right now (e.g. Eitaa).
+    mirrors: (id: number) =>
+      request<MirrorsResponse>("GET", `/channels/${id}/mirrors`),
+
     // Auth — the caller's own channel (404 if not created yet).
     getMine: () => request<Channel>("GET", "/channels/me"),
 
@@ -176,11 +181,13 @@ export const api = {
     rotateStreamKey: () =>
       request<StreamKeyResponse>("POST", "/channels/me/stream-key/rotate"),
 
-    startStream: (id: number, input: { title: string; category_id?: number }) =>
-      request<Stream>("POST", `/channels/${id}/stream/start`, input),
+    // Auth — save the title/category my next (or current) stream uses. Both
+    // fields are replaced: send the current category_id to keep it.
+    updateStreamInfo: (input: { title: string; category_id: number | null }) =>
+      request<Channel>("PUT", "/channels/me/stream-info", input),
 
-    stopStream: (id: number) =>
-      request<Stream>("POST", `/channels/${id}/stream/stop`),
+    // Auth — am I live right now? Going live happens in OBS, not here.
+    currentStream: () => request<CurrentStream>("GET", "/channels/me/stream"),
   },
 
   chat: {

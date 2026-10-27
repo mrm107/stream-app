@@ -51,13 +51,26 @@ export interface Channel {
   follower_count: number;
 }
 
-export interface Stream {
-  id: number;
-  channel_id: number;
-  title: string;
-  started_at: string;
-  ended_at?: string;
+// One extra place to watch a channel besides our own media server
+// (GET /channels/:id/mirrors, internal/restream). Listed only once it plays.
+export interface Mirror {
+  id: string; // "eitaa"
+  hls_url: string;
+}
+
+export interface MirrorsResponse {
+  mirrors: Mirror[];
+}
+
+// GET /channels/me/stream — the owner's live status. The session opens when
+// OBS starts publishing and closes when it stops; offline is {live: false}.
+export interface CurrentStream {
   live: boolean;
+  stream_id?: number;
+  title?: string;
+  category_id?: number;
+  started_at?: string;
+  viewers: number;
 }
 
 // The uniform error envelope every endpoint returns (httpx.Error).

@@ -385,6 +385,19 @@ input[type="checkbox"] { width: auto; height: auto; }
 .switch input:checked + .switch-track::after { transform: translateX(14px); background: #fff; }
 .switch input:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--accent-text); }
 
+/* server switch (Main / Eitaa) */
+.source-switch {
+  display: inline-flex;
+  border: 1px solid var(--border-input); border-radius: var(--radius);
+  overflow: hidden;
+}
+.source-switch button {
+  height: 26px; padding: 0 10px; border-radius: 0;
+  font-size: 12px; color: var(--muted); background: transparent;
+}
+.source-switch button + button { border-left: 1px solid var(--border-input); }
+.source-switch button.active, .source-switch button.active:hover { background: var(--accent); color: #fff; }
+
 /* ---------- chat ---------- */
 .chat {
   display: flex; flex-direction: column;
