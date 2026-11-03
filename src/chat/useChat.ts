@@ -150,6 +150,9 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
         case "presence":
           setViewers(frame.count ?? 0);
           break;
+        case "mode":
+          setMode(frame.mode ?? {});
+          break;
       }
     },
     [ingest]

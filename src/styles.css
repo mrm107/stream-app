@@ -419,6 +419,17 @@ input[type="checkbox"] { width: auto; height: auto; }
 .chat-dot--open { background: var(--ok); }
 .chat-dot--connecting { background: #eab308; }
 .chat-dot--closed { background: var(--error); }
+.chat-controls {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+}
+.chat-slow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.chat-slow select { height: 26px; font-size: 12px; }
+.chat-notice {
+  flex: none; padding: 8px 20px; font-size: 12px; text-align: center;
+  color: var(--muted); background: var(--bg-input); border-bottom: 1px solid var(--border);
+}
+.chat-notice--error { color: var(--error); }
 .chat-messages {
   flex: 1; min-height: 0;
   overflow-y: auto;

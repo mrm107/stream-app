@@ -92,6 +92,7 @@ export interface RoomMode {
   slow_seconds?: number;
   followers_only?: boolean;
   subscribers_only?: boolean;
+  closed?: boolean; // the channel owner closed the chat; only they may post
 }
 
 // Server-resolved sender identity on a chat message (never client-supplied).
@@ -128,7 +129,12 @@ export interface ChatPresenceFrame {
   type: "presence";
   count: number;
 }
-export type ChatFrame = ChatHelloFrame | ChatBatchFrame | ChatPresenceFrame;
+// Sent when the room's mode changes, e.g. the owner closes or reopens chat.
+export interface ChatModeFrame {
+  type: "mode";
+  mode: RoomMode;
+}
+export type ChatFrame = ChatHelloFrame | ChatBatchFrame | ChatPresenceFrame | ChatModeFrame;
 
 // POST /channels/{id}/chat/messages → 202 with the assigned seq/id/ts so the
 // client can reconcile its optimistic local echo.

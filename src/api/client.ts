@@ -8,6 +8,7 @@ import type {
   LiveStream,
   MirrorsResponse,
   OtpResponse,
+  RoomMode,
   StreamKeyResponse,
 } from "./types";
 
@@ -203,6 +204,13 @@ export const api = {
         `/channels/${channelId}/chat/messages`,
         { text }
       ),
+
+    // Owner only — change the chat's mode. Fields left out keep their value;
+    // the reply is the whole new mode, and viewers get a "mode" frame.
+    setMode: (
+      channelId: number | string,
+      change: { closed?: boolean; slow_seconds?: number }
+    ) => request<RoomMode>("PUT", `/channels/${channelId}/chat/mode`, change),
 
     // Public scrollback — used to seed / re-anchor history.
     recent: (channelId: number | string) =>

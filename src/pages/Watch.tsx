@@ -146,7 +146,7 @@ export default function Watch() {
         </div>
       </section>
 
-      <ChatBox channelId={channelId} onViewers={setViewers} />
+      <ChatBox channelId={channelId} onViewers={setViewers} ownerId={channel?.user_id} />
     </main>
   );
 }
