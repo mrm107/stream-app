@@ -7,6 +7,7 @@ import type {
   CurrentStream,
   LiveStream,
   MirrorsResponse,
+  OtpResponse,
   StreamKeyResponse,
 } from "./types";
 
@@ -56,7 +57,8 @@ export function setAuthCallbacks(cbs: {
 // themselves. A 401 from any OTHER path means "access token expired → refresh".
 const AUTH_PATHS = new Set([
   "/auth/login",
-  "/auth/register",
+  "/auth/otp/request",
+  "/auth/otp/verify",
   "/auth/refresh",
   "/auth/logout",
 ]);
@@ -134,13 +136,15 @@ async function request<T>(
 
 export const api = {
   auth: {
-    register: (input: {
-      username: string;
-      email: string;
-      password: string;
-      display_name?: string;
-    }) => request<AuthResponse>("POST", "/auth/register", input),
+    // Text a sign-in code to a mobile number.
+    requestOtp: (phone: string) =>
+      request<OtpResponse>("POST", "/auth/otp/request", { phone }),
 
+    // Sign in with the code; the first time for a number creates the account.
+    verifyOtp: (input: { phone: string; code: string; display_name?: string }) =>
+      request<AuthResponse>("POST", "/auth/otp/verify", input),
+
+    // For accounts made before phone sign-in.
     login: (input: { identifier: string; password: string }) =>
       request<AuthResponse>("POST", "/auth/login", input),
 

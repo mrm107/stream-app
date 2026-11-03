@@ -50,7 +50,7 @@ export default function Login() {
           </button>
         </form>
         <p className="auth-alt">
-          Don’t have an account? <Link to="/register" className="link">Sign up</Link>
+          No password? <Link to="/login" className="link">Log in with your mobile number</Link>
         </p>
       </div>
     </div>

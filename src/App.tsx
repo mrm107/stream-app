@@ -5,7 +5,7 @@ import Sidebar from "./components/Sidebar";
 import Browse from "./pages/Browse";
 import Watch from "./pages/Watch";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
+import PhoneAuth from "./pages/PhoneAuth";
 import Studio from "./pages/Studio";
 import type { ReactNode } from "react";
 
@@ -28,8 +28,9 @@ export default function App() {
             {/* public */}
             <Route path="/" element={<Browse />} />
             <Route path="/watch/:channelId" element={<Watch />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<PhoneAuth key="login" mode="login" />} />
+            <Route path="/register" element={<PhoneAuth key="register" mode="register" />} />
+            <Route path="/login/password" element={<Login />} />
 
             {/* creator only */}
             <Route

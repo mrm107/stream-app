@@ -9,7 +9,13 @@ export interface User {
   role: number; // 0 = user, 1 = admin
 }
 
-// Register, login, and refresh all return the same shape: a short-lived access
+// Both durations are in seconds.
+export interface OtpResponse {
+  expires_in: number;
+  retry_after: number;
+}
+
+// OTP verify, login, and refresh all return the same shape: a short-lived access
 // token, a long-lived refresh token, and the user. No channel is created.
 export interface AuthResponse {
   token: string;
