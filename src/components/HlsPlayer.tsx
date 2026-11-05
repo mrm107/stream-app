@@ -90,19 +90,29 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
         return;
       }
 
-      // Note: SRS HLS is NOT low-latency HLS, so lowLatencyMode only adds
-      // startup fragility. Keep the loader retries LOW: our own 4s poll
-      // (scheduleRetry) is the "wait for the stream" mechanism, so hls.js should
-      // hand off quickly instead of hammering a dead URL.
+      // Tuned for unstable networks: stability over latency (classes, not
+      // esports). SRS HLS is NOT low-latency HLS, so lowLatencyMode only adds
+      // startup fragility.
+      //
+      // The MANIFEST retries stay LOW on purpose: before the first manifest our
+      // own 4s poll (scheduleRetry) is the "wait for the stream" mechanism, and
+      // a quick hand-off keeps "offline" detection fast. Once playing, a lost
+      // playlist refresh or segment is almost always a network blip, so the
+      // level/fragment retries are generous — retry rather than fail.
       hls = new Hls({
         lowLatencyMode: false,
-        liveSyncDurationCount: 3, // ~3 segments behind the live edge
+        liveSyncDurationCount: 3, // ~3 segments (~12s at 4s) behind the live edge
+        maxBufferLength: 30, // seconds buffered ahead to ride out dips
         backBufferLength: 30,
+        // Start low and step up once bandwidth is measured. Only matters when
+        // the playlist offers several qualities (ABR); harmless otherwise.
+        abrEwmaDefaultEstimate: 500_000,
+        capLevelToPlayerSize: true, // don't fetch 720p for a small player
         manifestLoadingMaxRetry: 2,
         manifestLoadingRetryDelay: 1000,
-        levelLoadingMaxRetry: 2,
+        levelLoadingMaxRetry: 10,
         levelLoadingRetryDelay: 1000,
-        fragLoadingMaxRetry: 4,
+        fragLoadingMaxRetry: 10,
         fragLoadingRetryDelay: 1000,
       });
 
