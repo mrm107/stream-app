@@ -218,6 +218,11 @@ export const api = {
       change: { closed?: boolean; slow_seconds?: number }
     ) => request<RoomMode>("PUT", `/channels/${channelId}/chat/mode`, change),
 
+    // Owner only — remove every message in the chat, for everyone. Viewers
+    // (the owner included) learn of it from a "clear" frame.
+    clear: (channelId: number | string) =>
+      request<{ up_to: number }>("DELETE", `/channels/${channelId}/chat/messages`),
+
     // Public scrollback — used to seed / re-anchor history.
     recent: (channelId: number | string) =>
       request<ChatBatchFrame>("GET", `/channels/${channelId}/chat/recent`),

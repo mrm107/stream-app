@@ -450,7 +450,7 @@ html.in-eitaa .shell { height: var(--tg-viewport-stable-height, 100dvh); }
 .chat-dot--connecting { background: #eab308; }
 .chat-dot--closed { background: var(--error); }
 .chat-controls {
-  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 10px;
   padding: 8px 10px; border-bottom: 1px solid var(--border);
 }
 .chat-slow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }

@@ -134,7 +134,17 @@ export interface ChatModeFrame {
   type: "mode";
   mode: RoomMode;
 }
-export type ChatFrame = ChatHelloFrame | ChatBatchFrame | ChatPresenceFrame | ChatModeFrame;
+// Sent when the owner clears the chat: drop every message with seq ≤ up_to.
+export interface ChatClearFrame {
+  type: "clear";
+  up_to: number;
+}
+export type ChatFrame =
+  | ChatHelloFrame
+  | ChatBatchFrame
+  | ChatPresenceFrame
+  | ChatModeFrame
+  | ChatClearFrame;
 
 // POST /channels/{id}/chat/messages → 202 with the assigned seq/id/ts so the
 // client can reconcile its optimistic local echo.

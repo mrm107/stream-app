@@ -69,6 +69,10 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
   // down an open socket (the server fixes identity at connect time).
   const tokenRef = useRef(token);
   const meRef = useRef(me);
+  // The seq up to which the owner cleared this room's chat. Anything at or
+  // below it is dropped, including a batch the server sent just before the
+  // clear frame but that arrives just after it.
+  const clearedRef = useRef(0);
   useEffect(() => {
     tokenRef.current = token;
   }, [token]);
@@ -89,6 +93,7 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
       const next = prev.slice();
       for (const msg of incoming) {
         if (seen.has(msg.seq)) continue; // already have this seq
+        if (msg.seq <= clearedRef.current) continue; // cleared by the owner
         const mine = myId != null && msg.user.id === myId;
         if (mine) {
           // Reconcile the oldest pending echo with the same text.
@@ -153,6 +158,14 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
         case "mode":
           setMode(frame.mode ?? {});
           break;
+        case "clear": {
+          const upTo = frame.up_to ?? 0;
+          if (upTo <= clearedRef.current) break;
+          clearedRef.current = upTo;
+          // Messages still waiting for their seq stay; the send ack decides.
+          setMessages((prev) => prev.filter((m) => m.seq == null || m.seq > upTo));
+          break;
+        }
       }
     },
     [ingest]
@@ -197,6 +210,7 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
         ws.close();
       }
       // Reset for the next room so stale messages don't flash on switch.
+      clearedRef.current = 0;
       setMessages([]);
       setViewers(0);
     };
@@ -230,11 +244,14 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
         // echo already reconciled this message, it now has a seq and this maps
         // over nothing.
         setMessages((prev) =>
-          prev.map((m) =>
-            m.clientId === clientId && m.seq == null
-              ? { ...m, seq: res.seq, ts: res.ts, pending: false }
-              : m
-          )
+          res.seq <= clearedRef.current
+            ? // Sent just before the owner cleared the chat: it goes too.
+              prev.filter((m) => m.clientId !== clientId)
+            : prev.map((m) =>
+                m.clientId === clientId && m.seq == null
+                  ? { ...m, seq: res.seq, ts: res.ts, pending: false }
+                  : m
+              )
         );
       } catch {
         setMessages((prev) =>

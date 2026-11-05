@@ -61,6 +61,20 @@ export default function ChatBox({ channelId, onViewers, ownerId }: Props) {
 
   const [changing, setChanging] = useState(false);
   const [modeError, setModeError] = useState("");
+  // Clear every message, for everyone. The "clear" frame empties the list,
+  // the owner's included, so there is nothing to update here.
+  const clearChat = async () => {
+    if (!channelId || !window.confirm("Delete every message in this chat for everyone?")) return;
+    setChanging(true);
+    setModeError("");
+    try {
+      await api.chat.clear(channelId);
+    } catch (err) {
+      setModeError(err instanceof ApiRequestError ? err.message : "network error");
+    } finally {
+      setChanging(false);
+    }
+  };
   const changeMode = async (change: { closed?: boolean; slow_seconds?: number }) => {
     if (!channelId) return;
     setChanging(true);
@@ -130,6 +144,14 @@ export default function ChatBox({ channelId, onViewers, ownerId }: Props) {
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={() => void clearChat()}
+            disabled={changing || status !== "open"}
+          >
+            Clear chat
+          </button>
         </div>
       )}
       {closed && (
