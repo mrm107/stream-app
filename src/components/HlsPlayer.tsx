@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type HlsJs from "hls.js";
 import PlayerOverlay from "./PlayerOverlay";
+import type { Rendition } from "../util/constant";
 
 // "loading"   = first connect, nothing decoded yet (dark backdrop + spinner)
 // "buffering" = mid-playback stall — the last frame stays visible, spinner on
@@ -17,19 +18,65 @@ interface Props {
   poster?: string;
   title?: string; // shown on the offline card
   onStatus?: (status: PlayerStatus) => void;
+  // Lower-quality copies of src. Only the ones that exist are offered, so an
+  // empty or partly missing list just means fewer qualities (src alone works
+  // exactly as without ABR). Keep the array stable (useMemo): it re-inits the
+  // player. Ignored on the native-HLS fallback, which can't play a blob master.
+  renditions?: Rendition[];
+}
+
+// The source's own entry in the generated master playlist. Its real bitrate
+// and size are whatever the broadcaster's OBS sends; these are the OBS
+// settings we recommend, and only steer hls.js's ABR and capLevelToPlayerSize.
+const SOURCE_LEVEL = { name: "Source", bandwidth: 2_800_000, width: 1280, height: 720 };
+
+type LevelInfo = { name: string; bandwidth: number; width: number; height: number };
+
+// One entry of the quality menu: hls.js level index + label.
+interface QualityOption {
+  index: number;
+  name: string;
+}
+
+// httpStatus returns the HTTP status of a GET to url, or 0 when it didn't
+// answer (network error / timeout). Used to probe playlists before playing.
+async function httpStatus(url: string): Promise<number> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    return res.status;
+  } catch {
+    return 0;
+  }
+}
+
+const isOK = (code: number) => code >= 200 && code < 300;
+
+// masterPlaylist lists src plus the given renditions as one ABR master.
+// URLs must be absolute: a blob: playlist has no base to resolve against.
+function masterPlaylist(src: string, renditions: Rendition[]): string {
+  const abs = (u: string) => new URL(u, window.location.href).href;
+  const entry = (r: LevelInfo, url: string) =>
+    `#EXT-X-STREAM-INF:BANDWIDTH=${r.bandwidth},RESOLUTION=${r.width}x${r.height},NAME="${r.name}"\n${abs(url)}`;
+  return ["#EXTM3U", entry(SOURCE_LEVEL, src), ...renditions.map((r) => entry(r, r.url)), ""].join("\n");
 }
 
 // While a channel isn't live the manifest 404s; poll for it to appear so the
 // player recovers on its own when the broadcaster starts.
 const RETRY_MS = 4000;
 
-// HlsPlayer plays a live HLS stream cross-browser: native HLS on Safari/iOS,
-// hls.js everywhere else. hls.js is imported dynamically so it is only fetched
-// when actually needed (a separate chunk, and never on Safari). It reports
+// HlsPlayer plays a live HLS stream cross-browser: hls.js wherever MSE (or
+// ManagedMediaSource) exists, native HLS only where it doesn't (older iPhones).
+// hls.js is imported dynamically so it is a separate chunk. It reports
 // status and treats a missing manifest as "offline", retrying until it appears.
-export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
+export default function HlsPlayer({ src, poster, title, onStatus, renditions }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<HlsJs | null>(null);
   const [status, setStatus] = useState<PlayerStatus>("loading");
+  // Quality menu: the levels on offer (empty = single quality, no menu), the
+  // viewer's choice (-1 = auto) and the level hls.js is playing right now.
+  const [qualities, setQualities] = useState<QualityOption[]>([]);
+  const [choice, setChoice] = useState(-1);
+  const [playing, setPlaying] = useState(-1);
 
   // Hold the latest callback in a ref so changing it doesn't re-init the player.
   const statusCb = useRef(onStatus);
@@ -45,6 +92,22 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
     let retry: ReturnType<typeof setTimeout> | null = null;
     let stall: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
+    let master: string | null = null; // blob: URL of the generated master
+
+    const dropMaster = () => {
+      if (master) URL.revokeObjectURL(master);
+      master = null;
+    };
+    // dropHls tears down one playback attempt (before a retry).
+    const dropHls = () => {
+      hls?.destroy();
+      hls = null;
+      hlsRef.current = null;
+      dropMaster();
+      setQualities([]);
+      setChoice(-1);
+      setPlaying(-1);
+    };
 
     // current mirrors the reported status synchronously (state is async) so
     // event handlers can make decisions without a stale closure.
@@ -76,18 +139,49 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
       if (!opts?.silent) report("loading"); // stay "offline" on background retries
       video.muted = true; // required for autoplay
 
-      // Native HLS (Safari, iOS): let the browser handle everything; no hls.js.
-      if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = src;
-        video.play().catch(() => {}); // autoplay may be blocked; controls remain
-        return;
-      }
-
+      // hls.js FIRST, native HLS only as the fallback (hls.js's own advice).
+      // Newer Chrome/Edge also answer canPlayType("application/vnd.apple.mpegurl"),
+      // and native playback has none of our tuning: no quality menu, no ABR
+      // over the renditions, no retry policy. Native is left for browsers
+      // without MSE/ManagedMediaSource (older iPhones).
       const { default: Hls } = await import("hls.js");
       if (cancelled) return;
       if (!Hls.isSupported()) {
-        report("error");
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = src;
+          video.play().catch(() => {}); // autoplay may be blocked; controls remain
+        } else {
+          report("error");
+        }
         return;
+      }
+
+      // With renditions, probe before playing: first the source (a 404 means
+      // not live — keep polling without spinning up hls.js, so being offline
+      // still costs one request per poll), then the copies, offering only
+      // those that exist. Copies start a few seconds after the source, so a
+      // viewer who joins in that gap gets the source alone until a reconnect.
+      let manifest = src;
+      if (renditions?.length) {
+        const code = await httpStatus(src);
+        if (cancelled) return;
+        if (code === 404 || code === 410) {
+          scheduleRetry("offline");
+          return;
+        }
+        if (isOK(code)) {
+          const codes = await Promise.all(renditions.map((r) => httpStatus(r.url)));
+          if (cancelled) return;
+          const available = renditions.filter((_, i) => isOK(codes[i]));
+          if (available.length) {
+            master = URL.createObjectURL(
+              new Blob([masterPlaylist(src, available)], { type: "application/vnd.apple.mpegurl" })
+            );
+            manifest = master;
+          }
+        }
+        // Any other answer (timeout, 5xx): play src alone and let the normal
+        // error handling below decide.
       }
 
       // Tuned for unstable networks: stability over latency (classes, not
@@ -120,14 +214,24 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
       // and how many in-place recoveries we've tried before giving up.
       let gotManifest = false;
       let recoveries = 0;
+      hlsRef.current = hls;
 
-      hls.loadSource(src);
+      hls.loadSource(manifest);
       hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         gotManifest = true;
         recoveries = 0;
+        if (data.levels.length > 1) {
+          setQualities(
+            data.levels
+              .map((l, index) => ({ index, name: l.name || `${l.height}p`, bitrate: l.bitrate }))
+              .sort((a, b) => b.bitrate - a.bitrate) // best first in the menu
+              .map(({ index, name }) => ({ index, name }))
+          );
+        }
         video.play().catch(() => {});
       });
+      hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => setPlaying(data.level));
       hls.on(Hls.Events.FRAG_BUFFERED, () => {
         recoveries = 0; // playback is healthy again
       });
@@ -148,8 +252,7 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
         // stream is not published / has ended and hls_dispose cleaned up);
         // anything else (timeout, network, 5xx) keeps the loading state.
         if (isPlaylistLoad && (gone || !gotManifest)) {
-          hls?.destroy();
-          hls = null;
+          dropHls();
           scheduleRetry(gone ? "offline" : "loading");
           return;
         }
@@ -169,8 +272,7 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
 
         // Recovery exhausted → full reconnect as a last resort. Not a 404, so
         // the stream may well be up — keep showing loading, not offline.
-        hls?.destroy();
-        hls = null;
+        dropHls();
         scheduleRetry("loading");
       });
     };
@@ -221,10 +323,20 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("error", onError);
       hls?.destroy();
+      hlsRef.current = null;
+      dropMaster();
       video.removeAttribute("src");
       video.load();
     };
-  }, [src]);
+  }, [src, renditions]);
+
+  // -1 = auto. currentLevel switches right away (flushes the buffer), which is
+  // what a viewer picking a quality expects.
+  const pick = (index: number) => {
+    setChoice(index);
+    if (hlsRef.current) hlsRef.current.currentLevel = index;
+  };
+  const playingName = qualities.find((q) => q.index === playing)?.name;
 
   return (
     <div className="player">
@@ -237,6 +349,21 @@ export default function HlsPlayer({ src, poster, title, onStatus }: Props) {
         poster={poster}
       />
       <PlayerOverlay status={status} title={title} />
+      {qualities.length > 0 && (status === "playing" || status === "buffering") && (
+        <select
+          className="quality-select"
+          aria-label="Quality"
+          value={choice}
+          onChange={(e) => pick(Number(e.target.value))}
+        >
+          <option value={-1}>{playingName ? `Auto (${playingName})` : "Auto"}</option>
+          {qualities.map((q) => (
+            <option key={q.index} value={q.index}>
+              {q.name}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

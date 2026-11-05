@@ -13,6 +13,8 @@ COPY . .
 ARG VITE_API_URL
 ARG VITE_HLS_URL
 ARG VITE_RTMP_URL
+# Optional: defaults to VITE_HLS_URL with /live -> /abr.
+ARG VITE_HLS_ABR_URL
 
 RUN npm run build
 

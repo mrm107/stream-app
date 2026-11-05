@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import HlsPlayer, { type PlayerStatus } from "../components/HlsPlayer";
@@ -7,7 +7,7 @@ import ChatBox from "../components/ChatBox";
 import Avatar from "../components/Avatar";
 import { PersonIcon } from "../components/Icons";
 import { useLiveStreams } from "../live/LiveStreamsContext";
-import { flvUrl, hlsUrl } from "../util/constant";
+import { flvUrl, hlsRenditions, hlsUrl } from "../util/constant";
 import { formatCount, uptime } from "../util/format";
 import type { Channel, Mirror } from "../api/types";
 
@@ -39,6 +39,8 @@ export default function Watch() {
   const [protocol, setProtocol] = useState<Protocol>("hls");
   const [chosen, setChosen] = useState(readSource);
   const mirrors = useMirrors(id, Boolean(live));
+  // Stable per channel: a new array would re-init the player.
+  const renditions = useMemo(() => (channelId ? hlsRenditions(channelId) : []), [channelId]);
   const [viewers, setViewers] = useState(0);
   const [error, setError] = useState("");
 
@@ -82,7 +84,12 @@ export default function Watch() {
             (mirror ? (
               <HlsPlayer src={mirror.hls_url} title={title} onStatus={setPlayerStatus} />
             ) : protocol === "hls" ? (
-              <HlsPlayer src={hlsUrl(channelId)} title={title} onStatus={setPlayerStatus} />
+              <HlsPlayer
+                src={hlsUrl(channelId)}
+                renditions={renditions}
+                title={title}
+                onStatus={setPlayerStatus}
+              />
             ) : (
               <FlvPlayer src={flvUrl(channelId)} title={title} onStatus={setPlayerStatus} />
             ))}
