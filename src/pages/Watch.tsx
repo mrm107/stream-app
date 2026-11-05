@@ -5,6 +5,7 @@ import HlsPlayer, { type PlayerStatus } from "../components/HlsPlayer";
 import FlvPlayer from "../components/FlvPlayer";
 import ChatBox from "../components/ChatBox";
 import Avatar from "../components/Avatar";
+import ShareButton from "../components/ShareButton";
 import { PersonIcon } from "../components/Icons";
 import { useLiveStreams } from "../live/LiveStreamsContext";
 import { flvUrl, hlsRenditions, hlsUrl } from "../util/constant";
@@ -118,6 +119,7 @@ export default function Watch() {
             ) : (
               <span className="badge-offline">OFFLINE</span>
             )}
+            {id > 0 && <ShareButton channelId={id} title={title || name} />}
             {sources.length > 1 && (
               <div className="source-switch" role="group" aria-label="Playback server">
                 {sources.map((s) => {

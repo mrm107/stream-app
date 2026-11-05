@@ -58,6 +58,7 @@ export function setAuthCallbacks(cbs: {
 // themselves. A 401 from any OTHER path means "access token expired → refresh".
 const AUTH_PATHS = new Set([
   "/auth/login",
+  "/auth/eitaa",
   "/auth/otp/request",
   "/auth/otp/verify",
   "/auth/refresh",
@@ -144,6 +145,11 @@ export const api = {
     // Sign in with the code; the first time for a number creates the account.
     verifyOtp: (input: { phone: string; code: string; display_name?: string }) =>
       request<AuthResponse>("POST", "/auth/otp/verify", input),
+
+    // Sign in from the Eitaa mini-app with the initData Eitaa opened it with;
+    // the first time for an Eitaa user creates the account.
+    eitaa: (init_data: string) =>
+      request<AuthResponse>("POST", "/auth/eitaa", { init_data }),
 
     // For accounts made before phone sign-in.
     login: (input: { identifier: string; password: string }) =>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useBackHandler } from "../eitaa";
 
 // Signing in and signing up are one flow: the phone number is sent a code, and
 // verifying it creates the account the first time that number is seen. The two
@@ -18,6 +19,10 @@ export default function PhoneAuth({ mode }: { mode: "login" | "register" }) {
   const [resendIn, setResendIn] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // On the code step, Eitaa's back button returns to the number first (and
+  // waits while a request is in flight).
+  useBackHandler(codeSent ? () => !busy && setCodeSent(false) : undefined);
 
   useEffect(() => {
     if (resendIn <= 0) return;

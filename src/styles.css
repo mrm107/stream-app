@@ -25,14 +25,24 @@
   --chat-w: 340px;
   --radius: 4px;
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  /* Room for the status bar / home indicator: the insets Eitaa reports
+     (--tg-*, set by its SDK), with the phone's own as a floor. Zero elsewhere. */
+  --safe-top: max(var(--tg-safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+  --safe-bottom: max(var(--tg-safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
   font-family: Inter, "Roobert", "Helvetica Neue", Helvetica, Arial, sans-serif;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body {
+  height: 100%;
+  /* No rubber-band or pull-to-refresh on the page itself: scrolling happens in
+     .content, and in a WebView an overscroll would drag the whole app. */
+  overscroll-behavior: none;
+}
 body {
   margin: 0;
+  -webkit-tap-highlight-color: transparent;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -102,24 +112,33 @@ input[type="checkbox"] { width: auto; height: auto; }
 .shell {
   display: flex;
   height: 100vh;
-  padding-top: var(--nav-h);
+  height: 100dvh; /* the visible height, without the mobile URL bar */
+  padding-top: calc(var(--nav-h) + var(--safe-top));
 }
 .content {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  /* A scroll that reaches the end stops here instead of moving the page. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--safe-bottom);
 }
+/* Inside the Eitaa mini-app only .content (and the panels in it) scroll; the
+   document never does, so a vertical swipe can't pull the app down. */
+html.in-eitaa, html.in-eitaa body { overflow: hidden; }
+html.in-eitaa .shell { height: var(--tg-viewport-stable-height, 100dvh); }
 
 /* ---------- top nav ---------- */
 .topnav {
   position: fixed; inset: 0 0 auto 0;
   z-index: 100;
-  height: var(--nav-h);
+  height: calc(var(--nav-h) + var(--safe-top));
   display: grid;
   grid-template-columns: 1fr minmax(200px, 400px) 1fr;
   align-items: center;
   gap: 16px;
-  padding: 0 10px;
+  padding: var(--safe-top) 10px 0;
   background: var(--bg-alt);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.9);
 }
@@ -189,6 +208,7 @@ input[type="checkbox"] { width: auto; height: auto; }
   background: var(--bg-rail);
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   transition: width 0.15s ease;
 }
 .sidebar--collapsed { width: var(--rail-w-collapsed); }
@@ -289,7 +309,7 @@ input[type="checkbox"] { width: auto; height: auto; }
   grid-template-columns: minmax(0, 1fr) var(--chat-w);
   height: 100%;
 }
-.watch-main { overflow-y: auto; min-width: 0; }
+.watch-main { overflow-y: auto; min-width: 0; overscroll-behavior: contain; }
 .player-frame {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -443,6 +463,7 @@ input[type="checkbox"] { width: auto; height: auto; }
 .chat-messages {
   flex: 1; min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain; /* scrolling the chat never scrolls the page */
   padding: 10px 0;
 }
 .chat-welcome { padding: 5px 20px; font-size: 13px; color: var(--muted); }

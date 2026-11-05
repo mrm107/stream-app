@@ -38,3 +38,6 @@ export const LogoutIcon = (p: IconProps) =>
 
 export const KeyIcon = (p: IconProps) =>
   svg(<path fillRule="evenodd" d="M12 2a6 6 0 0 0-5.743 7.743L2 14v4h4v-2h2v-2h2l.257-.257A6 6 0 1 0 12 2Zm2 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" clipRule="evenodd" />, p);
+
+export const ShareIcon = (p: IconProps) =>
+  svg(<path d="M14 2a3 3 0 1 1-2.24 5l-3.86 2.13a3 3 0 0 1 0 1.74L11.76 13a3 3 0 1 1-.96 1.75l-3.86-2.13a3 3 0 1 1 0-5.24l3.86-2.13A3 3 0 0 1 14 2Zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM6 9a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm8 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" />, p);

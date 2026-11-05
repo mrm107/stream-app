@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useBackHandler } from "../eitaa";
 import Avatar from "./Avatar";
 import { KeyIcon, LogoutIcon, PersonIcon, SearchIcon, VideoIcon } from "./Icons";
 
@@ -8,7 +9,7 @@ import { KeyIcon, LogoutIcon, PersonIcon, SearchIcon, VideoIcon } from "./Icons"
 // search in the middle, and either Log In / Sign Up or the user menu on the
 // right.
 export default function Header() {
-  const { session, signOut } = useAuth();
+  const { session, pending, signOut } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const urlQuery = params.get("q") ?? "";
@@ -48,7 +49,7 @@ export default function Header() {
       </form>
 
       <div className="topnav-right">
-        {session ? (
+        {pending ? null : session ? (
           <UserMenu
             name={session.user.display_name || session.user.username}
             onSignOut={signOut}
@@ -75,6 +76,8 @@ export default function Header() {
 function UserMenu({ name, onSignOut }: { name: string; onSignOut: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // Eitaa's back button closes the open menu before leaving the page.
+  useBackHandler(open ? () => setOpen(false) : undefined);
 
   // Close on any click outside, and on Escape.
   useEffect(() => {

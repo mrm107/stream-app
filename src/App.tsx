@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { useRouteBack, useStartParamRoute } from "./eitaa";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Browse from "./pages/Browse";
@@ -11,13 +12,18 @@ import type { ReactNode } from "react";
 
 // RequireAuth gates creator-only routes; viewers/browse/watch stay public.
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { session } = useAuth();
+  const { session, pending } = useAuth();
+  if (pending) return null; // signing in from Eitaa; the page follows
   return session ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 // The shell is Twitch's: a fixed top nav, the live-channels rail on the left,
 // and the page scrolling on its own to the right of it.
 export default function App() {
+  // Eitaa's back button: back through the pages, close on the first one.
+  useRouteBack();
+  // Opened from a stream link in Eitaa: go to that stream.
+  useStartParamRoute();
   return (
     <div className="app">
       <Header />
