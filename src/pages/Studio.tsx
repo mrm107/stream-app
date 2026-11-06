@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useI18n } from "../i18n";
+import type { Lang } from "../i18n";
+import { rich } from "../i18n/rich";
 import { RTMP_URL, obsStreamKey } from "../util/constant";
+import ProfilePanel from "../components/ProfilePanel";
 import type { Channel, CurrentStream } from "../api/types";
 
 // How often the dashboard asks whether OBS has us live.
@@ -12,12 +16,17 @@ const STATUS_POLL_MS = 10_000;
 //   - no channel yet  -> show "Create your channel" (lazy channel creation)
 //   - has a channel   -> show the OBS setup (with the stream key), the stream
 //     info, and the live status
+// Either way the profile panel (picture, name, bio; the banner once there is
+// a channel) comes after.
 //
 // There is no "Go live" button, as on Twitch: starting to stream in OBS puts
 // the channel live, stopping ends it. The title is set ahead of time and
 // snapshotted by each new session.
 export default function Studio() {
   const { session } = useAuth();
+  const { t, lang } = useI18n();
+  // API errors come with the server's message; only the fallback is ours.
+  const msg = (err: unknown) => (err instanceof ApiRequestError ? err.message : t("common.networkError"));
   const [channel, setChannel] = useState<Channel | null>(null);
   const [loading, setLoading] = useState(true);
   // null = not loaded yet; "unavailable" = the channel predates encrypted key
@@ -93,7 +102,7 @@ export default function Studio() {
   async function rotateKey() {
     if (
       streamKey !== "unavailable" &&
-      !confirm("Generate a new stream key? OBS will stop working until you paste the new one.")
+      !confirm(t("studio.confirmReset"))
     ) {
       return;
     }
@@ -132,94 +141,101 @@ export default function Studio() {
     }
   }
 
-  if (loading) return <main className="page"><p className="muted">Loading…</p></main>;
+  if (loading) return <main className="page"><p className="muted">{t("studio.loading")}</p></main>;
 
   return (
     <main className="page dashboard">
       <header className="dash-head">
-        <h1 className="page-title">Creator Dashboard</h1>
-        <p className="muted">Signed in as {session?.user.display_name || session?.user.username}</p>
+        <h1 className="page-title">{t("studio.title")}</h1>
+        <p className="muted">
+          {rich(t, "studio.signedInAs", {
+            name: <bdi>{session?.user.display_name || session?.user.username}</bdi>,
+          })}
+        </p>
       </header>
 
       {!channel ? (
-        <section className="panel panel--hero">
-          <h2 className="panel-title">Start broadcasting</h2>
-          <p className="muted">
-            You don't have a channel yet. Create one to get a stream key and go live.
-          </p>
-          <button className="btn btn--primary" disabled={busy} onClick={createChannel}>
-            {busy ? "Creating…" : "Create my channel"}
-          </button>
-        </section>
+        <>
+          <section className="panel panel--hero">
+            <h2 className="panel-title">{t("studio.startTitle")}</h2>
+            <p className="muted">{t("studio.noChannel")}</p>
+            <button className="btn btn--primary" disabled={busy} onClick={createChannel}>
+              {busy ? t("studio.creating") : t("studio.create")}
+            </button>
+          </section>
+          <div className="dash-grid dash-grid--after">
+            <ProfilePanel channel={null} onChannel={setChannel} />
+          </div>
+        </>
       ) : (
         <div className="dash-grid">
           <section className="panel">
-            <h2 className="panel-title">Stream status</h2>
+            <h2 className="panel-title">{t("studio.status")}</h2>
             {status?.live ? (
               <>
                 <p className="dash-status">
-                  <span className="badge-live">LIVE</span> {status.title}
+                  <span className="badge-live">{t("common.live")}</span> <bdi>{status.title}</bdi>
                 </p>
                 <p className="muted small">
-                  {status.viewers} watching · since{" "}
-                  {status.started_at && new Date(status.started_at).toLocaleTimeString()}
+                  {t("studio.watchingSince", {
+                    n: status.viewers,
+                    time: status.started_at ? clockTime(status.started_at, lang) : "",
+                  })}
                 </p>
                 <Link className="link" to={`/watch/${channel.id}`}>
-                  Watch your stream →
+                  {t("studio.watchYours")}
                 </Link>
               </>
             ) : (
-              <p className="dash-status muted">
-                Offline. Press “Start Streaming” in OBS to go live; stopping
-                OBS ends the stream.
-              </p>
+              <p className="dash-status muted">{t("studio.offline")}</p>
             )}
 
             <form onSubmit={saveInfo}>
               <label className="field">
-                <span>Stream title</span>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What are you streaming today?" maxLength={140} />
+                <span>{t("studio.streamTitle")}</span>
+                <input
+                  dir="auto"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={t("studio.titlePlaceholder")}
+                  maxLength={140}
+                />
               </label>
               <div className="row">
                 <button type="submit" className="btn btn--primary" disabled={busy || title === channel.title}>
-                  {saved ? "Saved!" : "Save"}
+                  {saved ? t("studio.saved") : t("studio.save")}
                 </button>
               </div>
             </form>
-            <p className="muted small">
-              Set this before you go live. Changing it while live updates your
-              current stream too.
-            </p>
+            <p className="muted small">{t("studio.titleHint")}</p>
           </section>
 
           <section className="panel" id="obs">
-            <h2 className="panel-title">Stream setup</h2>
+            <h2 className="panel-title">{t("studio.setup")}</h2>
             <p className="muted">
-              In OBS → Settings → Stream, pick <strong>Custom…</strong> and paste
-              these.
+              {rich(t, "studio.setupHelp", {
+                // OBS's own menu names, in English whatever the page language.
+                path: <bdi dir="ltr">OBS → Settings → Stream</bdi>,
+                custom: <strong dir="ltr">Custom…</strong>,
+              })}
             </p>
-            <CopyRow label="Server" value={RTMP_URL} />
+            <CopyRow label={t("studio.server")} value={RTMP_URL} />
             {streamKey === "unavailable" ? (
-              <p className="muted small">
-                This channel's key was created before keys could be shown again.
-                Generate a new one to see it here.
-              </p>
+              <p className="muted small">{t("studio.keyUnavailable")}</p>
             ) : streamKey ? (
-              <CopyRow label="Stream key" value={obsStreamKey(channel.id, streamKey)} secret />
+              <CopyRow label={t("studio.streamKey")} value={obsStreamKey(channel.id, streamKey)} secret />
             ) : (
-              <p className="muted small">Loading stream key…</p>
+              <p className="muted small">{t("studio.loadingKey")}</p>
             )}
             <div className="row">
               <button type="button" className="btn btn--secondary btn--sm" disabled={busy || !streamKey} onClick={rotateKey}>
-                {streamKey === "unavailable" ? "Generate stream key" : "Reset stream key"}
+                {t(streamKey === "unavailable" ? "studio.generateKey" : "studio.resetKey")}
               </button>
             </div>
-            <p className="muted small">
-              Keep the key private: anyone with it can stream on your channel. It
-              travels inside the RTMP URL, so it never appears in the public
-              playback link. If it leaks, reset it.
-            </p>
+            <p className="muted small">{t("studio.keyPrivate")}</p>
           </section>
+
+          <ProfilePanel channel={channel} onChannel={setChannel} />
         </div>
       )}
 
@@ -228,14 +244,19 @@ export default function Studio() {
   );
 }
 
-function msg(err: unknown): string {
-  return err instanceof ApiRequestError ? err.message : "network error";
+// clockTime is a time of day in the page language (Persian digits in fa).
+function clockTime(iso: string, lang: Lang): string {
+  return new Date(iso).toLocaleTimeString(lang === "fa" ? "fa-IR" : "en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 // CopyRow shows a labelled, monospaced value with a one-click copy button. A
 // secret value is masked until revealed, so it doesn't leak on a shared or
 // recorded screen; copying always copies the real value.
 function CopyRow({ label, value, secret = false }: { label: string; value: string; secret?: boolean }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [shown, setShown] = useState(!secret);
   async function copy() {
@@ -251,14 +272,14 @@ function CopyRow({ label, value, secret = false }: { label: string; value: strin
     <div className="copy-field">
       <span className="copy-label">{label}</span>
       <div className="copy-row">
-        <code className="copy-value">{shown ? value : "•".repeat(24)}</code>
+        <code className="copy-value" dir="ltr">{shown ? value : "•".repeat(24)}</code>
         {secret && (
           <button type="button" className="btn btn--secondary btn--sm" onClick={() => setShown((v) => !v)}>
-            {shown ? "Hide" : "Show"}
+            {t(shown ? "studio.hide" : "studio.show")}
           </button>
         )}
         <button type="button" className="btn btn--secondary btn--sm" onClick={copy}>
-          {copied ? "Copied!" : "Copy"}
+          {t(copied ? "studio.copied" : "studio.copy")}
         </button>
       </div>
     </div>

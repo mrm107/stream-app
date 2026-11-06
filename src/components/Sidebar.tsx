@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { useI18n } from "../i18n";
 import { useLiveStreams } from "../live/LiveStreamsContext";
 import { formatCount } from "../util/format";
 import Avatar from "./Avatar";
@@ -7,11 +8,12 @@ import { CollapseIcon, ExpandIcon } from "./Icons";
 
 const COLLAPSED_KEY = "stream.sidebar.collapsed";
 
-// Sidebar is Twitch's left rail: the channels live right now, busiest first,
+// Sidebar is Twitch's side rail (on the right in Persian): the channels live right now, busiest first,
 // each with its avatar, title and viewer count. It collapses to avatars only,
 // and CSS hides it entirely on small screens.
 export default function Sidebar() {
   const { streams } = useLiveStreams();
+  const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(COLLAPSED_KEY) === "1";
@@ -32,21 +34,21 @@ export default function Sidebar() {
   };
 
   return (
-    <nav className={`sidebar${collapsed ? " sidebar--collapsed" : ""}`} aria-label="Live channels">
+    <nav className={`sidebar${collapsed ? " sidebar--collapsed" : ""}`} aria-label={t("nav.liveChannels")}>
       <div className="sidebar-head">
-        {!collapsed && <h2>Live Channels</h2>}
+        {!collapsed && <h2>{t("nav.liveChannels")}</h2>}
         <button
           className="icon-btn"
           onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand" : "Collapse"}
+          aria-label={t(collapsed ? "nav.expandSidebar" : "nav.collapseSidebar")}
+          title={t(collapsed ? "nav.expand" : "nav.collapse")}
         >
-          {collapsed ? <ExpandIcon /> : <CollapseIcon />}
+          {collapsed ? <ExpandIcon className="icon-flip" /> : <CollapseIcon className="icon-flip" />}
         </button>
       </div>
 
       {streams?.length === 0 && !collapsed && (
-        <p className="sidebar-empty">No one is live right now.</p>
+        <p className="sidebar-empty">{t("nav.noneLive")}</p>
       )}
 
       <ul className="sidebar-list">
@@ -57,7 +59,7 @@ export default function Sidebar() {
               className="sidebar-item"
               title={collapsed ? `${s.display_name} · ${s.title}` : s.title}
             >
-              <Avatar name={s.display_name} size={30} />
+              <Avatar name={s.display_name} src={s.avatar_url} size={30} />
               {!collapsed && (
                 <>
                   <span className="sidebar-text">

@@ -5,11 +5,14 @@ import type {
   Channel,
   CreateChannelResponse,
   CurrentStream,
+  FollowState,
   LiveStream,
   MirrorsResponse,
   OtpResponse,
+  ProfileUpdate,
   RoomMode,
   StreamKeyResponse,
+  User,
 } from "./types";
 
 import { API_URL } from "../util/constant";
@@ -134,6 +137,67 @@ async function request<T>(
   return data as T;
 }
 
+// errorFrom turns a failed response body into an ApiRequestError.
+function errorFrom(status: number, statusText: string, text: string): ApiRequestError {
+  let data: { error?: string; message?: string } | null = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // not JSON (e.g. a proxy's error page)
+  }
+  return new ApiRequestError(status, data?.error ?? "error", data?.message ?? statusText);
+}
+
+/** Upload progress, 0..1. */
+export type OnProgress = (fraction: number) => void;
+
+// upload sends a file as the raw request body (not multipart), with its own
+// type as Content-Type. It uses XMLHttpRequest because fetch cannot report
+// upload progress; auth and the refresh-on-401 replay match request().
+function upload<T>(
+  method: string,
+  path: string,
+  file: Blob,
+  onProgress?: OnProgress,
+  isRetry = false
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, BASE + path);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    if (accessToken) xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
+      };
+    }
+    xhr.onerror = () => reject(new TypeError("network error"));
+    xhr.onload = () => {
+      if (xhr.status === 401 && !isRetry && refreshToken) {
+        void refreshAccessToken().then((ok) => {
+          if (ok) {
+            onProgress?.(0);
+            upload<T>(method, path, file, onProgress, true).then(resolve, reject);
+          } else {
+            reject(errorFrom(xhr.status, xhr.statusText, xhr.responseText));
+          }
+        });
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(errorFrom(xhr.status, xhr.statusText, xhr.responseText));
+        return;
+      }
+      try {
+        resolve((xhr.responseText ? JSON.parse(xhr.responseText) : null) as T);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    xhr.send(file);
+  });
+}
+
 // --- typed endpoint wrappers, grouped by backend feature ---
 
 export const api = {
@@ -163,6 +227,22 @@ export const api = {
     // Revoke a refresh token server-side. Idempotent; safe to ignore failures.
     logout: (refresh_token: string) =>
       request<null>("POST", "/auth/logout", { refresh_token }),
+  },
+
+  users: {
+    // Auth — my own account, fresh from the server.
+    me: () => request<User>("GET", "/users/me"),
+
+    // Auth — change my display name and/or bio (≤ 300 characters).
+    updateMe: (change: ProfileUpdate) => request<User>("PATCH", "/users/me", change),
+
+    // Auth — replace my picture; the body is the image itself. Returns me
+    // with the new avatar_url.
+    uploadAvatar: (file: Blob, onProgress?: OnProgress) =>
+      upload<User>("PUT", "/users/me/avatar", file, onProgress),
+
+    // Auth — remove my picture (back to the initial).
+    deleteAvatar: () => request<User>("DELETE", "/users/me/avatar"),
   },
 
   streams: {
@@ -199,6 +279,16 @@ export const api = {
 
     // Auth — am I live right now? Going live happens in OBS, not here.
     currentStream: () => request<CurrentStream>("GET", "/channels/me/stream"),
+
+    // Auth — my channel's banner; the body is the image itself.
+    uploadBanner: (file: Blob, onProgress?: OnProgress) =>
+      upload<Channel>("PUT", "/channels/me/banner", file, onProgress),
+    deleteBanner: () => request<Channel>("DELETE", "/channels/me/banner"),
+
+    // Auth — do I follow the channel, and its follower count.
+    followState: (id: number) => request<FollowState>("GET", `/channels/${id}/follow`),
+    follow: (id: number) => request<FollowState>("PUT", `/channels/${id}/follow`),
+    unfollow: (id: number) => request<FollowState>("DELETE", `/channels/${id}/follow`),
   },
 
   chat: {

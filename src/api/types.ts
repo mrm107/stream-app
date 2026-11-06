@@ -7,6 +7,16 @@ export interface User {
   email?: string;
   display_name?: string;
   role: number; // 0 = user, 1 = admin
+  // Absolute URL of the uploaded picture; null without one. Optional only
+  // because sessions saved before pictures existed lack both fields.
+  avatar_url?: string | null;
+  bio?: string; // at most 300 characters
+}
+
+// PATCH /users/me: fields left out keep their value.
+export interface ProfileUpdate {
+  display_name?: string;
+  bio?: string;
 }
 
 // Both durations are in seconds.
@@ -33,6 +43,7 @@ export interface LiveStream {
   viewers: number;
   category_id?: number;
   started_at: string;
+  avatar_url: string | null;
 }
 
 // POST /channels response — the new channel plus its stream key.
@@ -54,6 +65,21 @@ export interface Channel {
   language: string;
   category_id?: number;
   is_partner: boolean;
+  follower_count: number;
+  // The owner's username: the channel's public handle.
+  username: string;
+  // The owner's profile, as shown on the channel.
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string;
+  // Wide (5:2) picture behind the player while the channel is offline.
+  banner_url: string | null;
+}
+
+// GET / PUT / DELETE /channels/{id}/follow: the caller's follow state and the
+// channel's follower count after the change.
+export interface FollowState {
+  following: boolean;
   follower_count: number;
 }
 

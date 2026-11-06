@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type HlsJs from "hls.js";
 import PlayerOverlay from "./PlayerOverlay";
+import PlayerControls from "./player/PlayerControls";
+import type { PlayerUi, SettingGroup } from "./player/PlayerControls";
+import { useI18n } from "../i18n";
 import type { Rendition } from "../util/constant";
 
 // "loading"   = first connect, nothing decoded yet (dark backdrop + spinner)
@@ -17,12 +20,15 @@ interface Props {
   src: string; // HLS playlist URL (.m3u8)
   poster?: string;
   title?: string; // shown on the offline card
+  banner?: string | null; // the channel's banner, behind the offline card
   onStatus?: (status: PlayerStatus) => void;
   // Lower-quality copies of src. Only the ones that exist are offered, so an
   // empty or partly missing list just means fewer qualities (src alone works
   // exactly as without ABR). Keep the array stable (useMemo): it re-inits the
   // player. Ignored on the native-HLS fallback, which can't play a blob master.
   renditions?: Rendition[];
+  // The watch page's additions to the controls (settings, fullscreen, chat).
+  ui?: PlayerUi;
 }
 
 // The source's own entry in the generated master playlist. Its real bitrate
@@ -68,7 +74,8 @@ const RETRY_MS = 4000;
 // ManagedMediaSource) exists, native HLS only where it doesn't (older iPhones).
 // hls.js is imported dynamically so it is a separate chunk. It reports
 // status and treats a missing manifest as "offline", retrying until it appears.
-export default function HlsPlayer({ src, poster, title, onStatus, renditions }: Props) {
+export default function HlsPlayer({ src, poster, title, banner, onStatus, renditions, ui }: Props) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<HlsJs | null>(null);
   const [status, setStatus] = useState<PlayerStatus>("loading");
@@ -337,33 +344,27 @@ export default function HlsPlayer({ src, poster, title, onStatus, renditions }: 
     if (hlsRef.current) hlsRef.current.currentLevel = index;
   };
   const playingName = qualities.find((q) => q.index === playing)?.name;
+  const quality: SettingGroup | undefined =
+    qualities.length > 0
+      ? {
+          id: "quality",
+          label: t("player.quality"),
+          value: String(choice),
+          options: [
+            { value: "-1", label: playingName ? t("player.autoWith", { name: playingName }) : t("player.auto") },
+            ...qualities.map((q) => ({ value: String(q.index), label: q.name })),
+          ],
+          onPick: (v) => pick(Number(v)),
+        }
+      : undefined;
+  // hls.js knows where "live" is; null on native HLS (then: end of the buffer).
+  const liveEdge = useCallback(() => hlsRef.current?.liveSyncPosition ?? null, []);
 
   return (
     <div className="player">
-      <video
-        ref={videoRef}
-        className="video"
-        controls
-        playsInline
-        muted
-        poster={poster}
-      />
-      <PlayerOverlay status={status} title={title} />
-      {qualities.length > 0 && (status === "playing" || status === "buffering") && (
-        <select
-          className="quality-select"
-          aria-label="Quality"
-          value={choice}
-          onChange={(e) => pick(Number(e.target.value))}
-        >
-          <option value={-1}>{playingName ? `Auto (${playingName})` : "Auto"}</option>
-          {qualities.map((q) => (
-            <option key={q.index} value={q.index}>
-              {q.name}
-            </option>
-          ))}
-        </select>
-      )}
+      <video ref={videoRef} className="video" playsInline muted poster={poster} />
+      <PlayerOverlay status={status} title={title} banner={banner} />
+      <PlayerControls videoRef={videoRef} status={status} quality={quality} liveEdge={liveEdge} {...ui} />
     </div>
   );
 }

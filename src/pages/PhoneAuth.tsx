@@ -2,14 +2,25 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useNext } from "../auth/next";
 import { useBackHandler } from "../eitaa";
+import { useI18n } from "../i18n";
+
+// Persian and Arabic keyboards type their own digits; the API wants Latin ones.
+const latinDigits = (s: string) =>
+  s.replace(/[\u06F0-\u06F9\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) & 0xf));
+
+// Length of the code the server texts.
+const CODE_LENGTH = 6;
 
 // Signing in and signing up are one flow: the phone number is sent a code, and
 // verifying it creates the account the first time that number is seen. The two
 // routes differ only in wording and in offering a display name.
 export default function PhoneAuth({ mode }: { mode: "login" | "register" }) {
   const { signIn } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
+  const next = useNext();
   const signingUp = mode === "register";
 
   const [phone, setPhone] = useState("");
@@ -36,7 +47,7 @@ export default function PhoneAuth({ mode }: { mode: "login" | "register" }) {
     try {
       await action();
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "network error");
+      setError(err instanceof ApiRequestError ? err.message : t("common.networkError"));
     } finally {
       setBusy(false);
     }
@@ -58,7 +69,7 @@ export default function PhoneAuth({ mode }: { mode: "login" | "register" }) {
         display_name: displayName || undefined,
       });
       signIn({ token: res.token, refreshToken: res.refresh_token, user: res.user });
-      navigate("/");
+      navigate(next.to, { replace: true });
     });
 
   function onSubmit(e: React.FormEvent) {
@@ -69,14 +80,14 @@ export default function PhoneAuth({ mode }: { mode: "login" | "register" }) {
   return (
     <div className="auth">
       <div className="auth-card">
-        <h1 className="auth-title">{signingUp ? "Join Stream today" : "Log in to Stream"}</h1>
+        <h1 className="auth-title">{t(signingUp ? "auth.joinTitle" : "auth.loginTitle")}</h1>
         <div className="tabs" role="tablist">
-          <Link to="/login" className={signingUp ? "tab" : "tab tab--active"} role="tab">Log In</Link>
-          <Link to="/register" className={signingUp ? "tab tab--active" : "tab"} role="tab">Sign Up</Link>
+          <Link to={next.link("/login")} className={signingUp ? "tab" : "tab tab--active"} role="tab">{t("auth.login")}</Link>
+          <Link to={next.link("/register")} className={signingUp ? "tab tab--active" : "tab"} role="tab">{t("auth.signup")}</Link>
         </div>
         <form className="auth-form" onSubmit={onSubmit}>
           <label className="field">
-            <span>Mobile number</span>
+            <span>{t("auth.phone")}</span>
             <input
               type="tel"
               dir="ltr"
@@ -84,7 +95,7 @@ export default function PhoneAuth({ mode }: { mode: "login" | "register" }) {
               autoComplete="tel"
               placeholder="09123456789"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(latinDigits(e.target.value))}
               disabled={codeSent}
               required
               autoFocus
@@ -93,44 +104,44 @@ export default function PhoneAuth({ mode }: { mode: "login" | "register" }) {
           {codeSent && (
             <>
               <label className="field">
-                <span>Code</span>
+                <span>{t("auth.code")}</span>
                 <input
                   dir="ltr"
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => setCode(latinDigits(e.target.value))}
                   required
                   autoFocus
                 />
-                <small className="muted">We texted a 6-digit code to this number.</small>
+                <small className="muted">{t("auth.codeSent", { n: CODE_LENGTH })}</small>
               </label>
               {signingUp && (
                 <label className="field">
-                  <span>Display name <em className="muted">(optional)</em></span>
-                  <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={64} />
+                  <span>{t("auth.displayName")} <em className="muted">{t("auth.optional")}</em></span>
+                  <input dir="auto" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={64} />
                 </label>
               )}
             </>
           )}
           {error && <p className="error">{error}</p>}
           <button className="btn btn--primary btn--block" disabled={busy}>
-            {busy ? "Please wait…" : codeSent ? (signingUp ? "Sign Up" : "Log In") : "Send code"}
+            {busy ? t("auth.wait") : codeSent ? t(signingUp ? "auth.signup" : "auth.login") : t("auth.sendCode")}
           </button>
           {codeSent && (
             <>
               <button type="button" className="btn btn--secondary btn--block" disabled={busy || resendIn > 0} onClick={() => void sendCode()}>
-                {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+                {resendIn > 0 ? t("auth.resendIn", { n: resendIn }) : t("auth.resend")}
               </button>
               <button type="button" className="btn btn--secondary btn--block" disabled={busy} onClick={() => { setCodeSent(false); setError(""); }}>
-                Change number
+                {t("auth.changeNumber")}
               </button>
             </>
           )}
         </form>
         {!signingUp && (
           <p className="auth-alt">
-            Have an older account? <Link to="/login/password" className="link">Log in with a password</Link>
+            {t("auth.olderAccount")} <Link to={next.link("/login/password")} className="link">{t("auth.loginWithPassword")}</Link>
           </p>
         )}
       </div>

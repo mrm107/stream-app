@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlayerStatus } from "./HlsPlayer";
 import PlayerOverlay from "./PlayerOverlay";
+import PlayerControls from "./player/PlayerControls";
+import type { PlayerUi } from "./player/PlayerControls";
 
 // mpegts.js exposes its Player type only inside a non-exported namespace, so we
 // recover it from createPlayer's return type.
@@ -12,7 +14,9 @@ interface Props {
   src: string; // HTTP-FLV URL (.flv)
   poster?: string;
   title?: string; // shown on the offline card
+  banner?: string | null; // the channel's banner, behind the offline card
   onStatus?: (status: PlayerStatus) => void;
+  ui?: PlayerUi;
 }
 
 // While a channel isn't live the .flv 404s; poll for it to appear so the
@@ -24,7 +28,7 @@ const RETRY_MS = 4000;
 // always required — it is imported dynamically so its chunk only loads when the
 // viewer actually switches to FLV. Interface mirrors HlsPlayer (same status
 // reporting and offline-retry) so the two are drop-in interchangeable.
-export default function FlvPlayer({ src, poster, title, onStatus }: Props) {
+export default function FlvPlayer({ src, poster, title, banner, onStatus, ui }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState<PlayerStatus>("loading");
 
@@ -142,15 +146,9 @@ export default function FlvPlayer({ src, poster, title, onStatus }: Props) {
 
   return (
     <div className="player">
-      <video
-        ref={videoRef}
-        className="video"
-        controls
-        playsInline
-        muted
-        poster={poster}
-      />
-      <PlayerOverlay status={status} title={title} />
+      <video ref={videoRef} className="video" playsInline muted poster={poster} />
+      <PlayerOverlay status={status} title={title} banner={banner} />
+      <PlayerControls videoRef={videoRef} status={status} {...ui} />
     </div>
   );
 }

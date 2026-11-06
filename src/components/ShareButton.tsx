@@ -1,12 +1,24 @@
 import { useEffect, useState } from "react";
 import { streamShareLink } from "../eitaa";
 import { ShareIcon } from "./Icons";
+import { CheckIcon } from "./player/icons";
+import { useI18n } from "../i18n";
 
 // ShareButton hands out a link to this channel's stream. Where the phone has a
 // share sheet it opens that; otherwise the link is copied. With the Eitaa
 // mini-app's link configured, tapping the shared link in Eitaa opens the
 // mini-app right at this stream.
-export default function ShareButton({ channelId, title }: { channelId: number; title?: string }) {
+export default function ShareButton({
+  channelId,
+  title,
+  compact,
+}: {
+  channelId: number;
+  title?: string;
+  /** Icon only (the label stays for screen readers). */
+  compact?: boolean;
+}) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -27,13 +39,20 @@ export default function ShareButton({ channelId, title }: { channelId: number; t
       }
     }
     if (await copy(url)) setCopied(true);
-    else window.prompt("Copy this link", url);
+    else window.prompt(t("watch.copyLink"), url);
   };
 
   return (
-    <button type="button" className="btn btn--secondary btn--sm" onClick={() => void share()}>
-      <ShareIcon size={16} />
-      {copied ? "Link copied" : "Share"}
+    <button
+      type="button"
+      className={`btn btn--secondary btn--sm${compact ? " btn--icon-only" : ""}`}
+      onClick={() => void share()}
+      aria-label={copied ? t("watch.linkCopied") : t("watch.share")}
+      title={copied ? t("watch.linkCopied") : t("watch.share")}
+    >
+      {/* A tick for two seconds once the link is on the clipboard. */}
+      {copied ? <CheckIcon size={18} className="share-done" /> : <ShareIcon size={16} />}
+      {!compact && <span>{copied ? t("watch.linkCopied") : t("watch.share")}</span>}
     </button>
   );
 }

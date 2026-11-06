@@ -32,6 +32,10 @@ interface EitaaWebApp {
   setHeaderColor: (color: string) => void;
   setBackgroundColor: (color: string) => void;
   setBottomBarColor: (color: string) => void;
+  // 1.3+: the mini-app covers the whole screen, without Eitaa's header.
+  requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
+  isFullscreen?: boolean;
   BackButton: {
     show: () => void;
     hide: () => void;

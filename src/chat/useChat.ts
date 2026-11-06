@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../api/client";
+import { api, ApiRequestError } from "../api/client";
 import { chatWsUrl } from "../util/constant";
 import type {
   ChatFrame,
@@ -22,6 +22,9 @@ export interface UiMessage {
   mine: boolean;
   pending: boolean;
   failed: boolean;
+  // The server's error code when the send failed (e.g. "slow_mode"), "" for
+  // a network error.
+  failCode?: string;
 }
 
 // Keep only the last N rendered messages — the live tail is an ephemeral
@@ -53,6 +56,8 @@ export interface UseChatResult {
   mode: RoomMode;
   canSend: boolean;
   send: (text: string) => Promise<void>;
+  // Sends a failed message of ours again, in place of the failed copy.
+  retry: (failed: UiMessage) => void;
 }
 
 // useChat owns one WebSocket to a room's live chat: it applies hello/batch/
@@ -253,17 +258,27 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
                   : m
               )
         );
-      } catch {
+      } catch (err) {
+        const failCode = err instanceof ApiRequestError ? err.code : "";
         setMessages((prev) =>
           prev.map((m) =>
             m.clientId === clientId
-              ? { ...m, pending: false, failed: true }
+              ? { ...m, pending: false, failed: true, failCode }
               : m
           )
         );
       }
     },
     [channelId]
+  );
+
+  const retry = useCallback(
+    (failed: UiMessage) => {
+      if (!failed.failed) return;
+      setMessages((prev) => prev.filter((m) => m.clientId !== failed.clientId));
+      void send(failed.text);
+    },
+    [send]
   );
 
   return {
@@ -273,5 +288,6 @@ export function useChat({ channelId, token, me }: UseChatArgs): UseChatResult {
     mode,
     canSend: me != null,
     send,
+    retry,
   };
 }

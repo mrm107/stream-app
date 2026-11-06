@@ -1,5 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import Avatar from "../components/Avatar";
+import { useI18n } from "../i18n";
+import { rich } from "../i18n/rich";
 import { useLiveStreams } from "../live/LiveStreamsContext";
 import { avatarHue, initial, viewersLabel } from "../util/format";
 import type { LiveStream } from "../api/types";
@@ -8,6 +10,7 @@ import type { LiveStream } from "../api/types";
 // search (?q=). No auth required.
 export default function Browse() {
   const { streams, error } = useLiveStreams();
+  const { t } = useI18n();
   const [params] = useSearchParams();
   const q = (params.get("q") ?? "").trim().toLowerCase();
 
@@ -20,15 +23,13 @@ export default function Browse() {
   return (
     <main className="page">
       <h1 className="page-title">
-        {q ? (
-          <>
-            Results for <span className="accent">“{params.get("q")}”</span>
-          </>
-        ) : (
-          <>
-            <span className="accent">Live channels</span> we think you’ll like
-          </>
-        )}
+        {q
+          ? rich(t, "browse.resultsFor", {
+              q: <bdi className="accent">“{params.get("q")}”</bdi>,
+            })
+          : rich(t, "browse.heading", {
+              accent: <span className="accent">{t("browse.headingAccent")}</span>,
+            })}
       </h1>
 
       {error && <p className="error">{error}</p>}
@@ -37,13 +38,17 @@ export default function Browse() {
         !error && <SkeletonGrid />
       ) : shown.length === 0 ? (
         <div className="empty">
-          <div className="empty-title">{q ? "No live channels match your search" : "No one is live right now"}</div>
+          <div className="empty-title">{t(q ? "browse.noMatch" : "browse.noneLive")}</div>
           <p className="muted">
-            {q ? "Try another name or title." : (
-              <>
-                Be the first — <Link to="/studio" className="link">open the Creator Dashboard</Link> and go live.
-              </>
-            )}
+            {q
+              ? t("browse.tryAnother")
+              : rich(t, "browse.beFirst", {
+                  link: (
+                    <Link to="/studio" className="link">
+                      {t("browse.openStudio")}
+                    </Link>
+                  ),
+                })}
           </p>
         </div>
       ) : (
@@ -60,10 +65,11 @@ export default function Browse() {
 // StreamCard is Twitch's live card: a 16:9 thumbnail that lifts onto a purple
 // offset on hover, then the avatar, title and channel name.
 function StreamCard({ s }: { s: LiveStream }) {
+  const { t } = useI18n();
   const hue = avatarHue(s.display_name);
   return (
     <article className="card-stream">
-      <Link to={`/watch/${s.channel_id}`} className="thumb-wrap" aria-label={`Watch ${s.display_name}`}>
+      <Link to={`/watch/${s.channel_id}`} className="thumb-wrap" aria-label={t("browse.watch", { name: s.display_name })}>
         <div
           className="thumb"
           style={{
@@ -71,13 +77,13 @@ function StreamCard({ s }: { s: LiveStream }) {
           }}
         >
           <span className="thumb-initial">{initial(s.display_name)}</span>
-          <span className="badge-live">LIVE</span>
+          <span className="badge-live">{t("common.live")}</span>
           <span className="thumb-viewers">{viewersLabel(s.viewers)}</span>
         </div>
       </Link>
       <div className="card-meta">
         <Link to={`/watch/${s.channel_id}`} aria-hidden tabIndex={-1}>
-          <Avatar name={s.display_name} size={40} />
+          <Avatar name={s.display_name} src={s.avatar_url} size={40} />
         </Link>
         <div className="card-text">
           <Link to={`/watch/${s.channel_id}`} className="card-title" title={s.title}>

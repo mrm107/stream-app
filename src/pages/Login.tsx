@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, ApiRequestError } from "../api/client";
+import { useI18n } from "../i18n";
 import { useAuth } from "../auth/AuthContext";
+import { useNext } from "../auth/next";
 
 export default function Login() {
   const { signIn } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
+  const next = useNext();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -19,9 +23,9 @@ export default function Login() {
     try {
       const res = await api.auth.login({ identifier, password });
       signIn({ token: res.token, refreshToken: res.refresh_token, user: res.user });
-      navigate("/");
+      navigate(next.to, { replace: true });
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "network error");
+      setError(err instanceof ApiRequestError ? err.message : t("common.networkError"));
     } finally {
       setBusy(false);
     }
@@ -30,27 +34,27 @@ export default function Login() {
   return (
     <div className="auth">
       <div className="auth-card">
-        <h1 className="auth-title">Log in to Stream</h1>
+        <h1 className="auth-title">{t("auth.loginTitle")}</h1>
         <div className="tabs" role="tablist">
-          <Link to="/login" className="tab tab--active" role="tab" aria-selected>Log In</Link>
-          <Link to="/register" className="tab" role="tab">Sign Up</Link>
+          <Link to={next.link("/login")} className="tab tab--active" role="tab" aria-selected>{t("auth.login")}</Link>
+          <Link to={next.link("/register")} className="tab" role="tab">{t("auth.signup")}</Link>
         </div>
         <form className="auth-form" onSubmit={onSubmit}>
           <label className="field">
-            <span>Username or email</span>
-            <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoFocus />
+            <span>{t("auth.identifier")}</span>
+            <input dir="ltr" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoFocus />
           </label>
           <label className="field">
-            <span>Password</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <span>{t("auth.password")}</span>
+            <input type="password" dir="ltr" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
           {error && <p className="error">{error}</p>}
           <button className="btn btn--primary btn--block" disabled={busy}>
-            {busy ? "Logging in…" : "Log In"}
+            {busy ? t("auth.loggingIn") : t("auth.login")}
           </button>
         </form>
         <p className="auth-alt">
-          No password? <Link to="/login" className="link">Log in with your mobile number</Link>
+          {t("auth.noPassword")} <Link to={next.link("/login")} className="link">{t("auth.loginWithPhone")}</Link>
         </p>
       </div>
     </div>

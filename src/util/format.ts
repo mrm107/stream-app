@@ -1,30 +1,26 @@
 // Display helpers shared by the browse grid, the sidebar, the watch page and
-// chat. Pure functions, no React.
+// chat. Pure functions, no React; they read the current language.
 
-// formatCount shortens a number the way Twitch does: 950, 1.2K, 12K, 1.3M.
+import { currentLang, formatCompact, localDigits, translate } from "../i18n";
+
+// formatCount shortens a number in the current language: 950, 1.2K, 12K,
+// 1.3M — ۱٫۲ هزار in Persian.
 export function formatCount(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return trim(n / 1000) + "K";
-  return trim(n / 1_000_000) + "M";
+  return formatCompact(n);
 }
 
-// One decimal under 10 (1.2K), none above (12K), never a trailing ".0".
-function trim(v: number): string {
-  return v < 10 ? String(Math.floor(v * 10) / 10) : String(Math.floor(v));
-}
-
-// viewersLabel is "1 viewer" / "1.2K viewers".
+// viewersLabel is "1 viewer" / "1.2K viewers" / "۱٫۲ هزار بیننده".
 export function viewersLabel(n: number): string {
-  return `${formatCount(n)} ${n === 1 ? "viewer" : "viewers"}`;
+  return translate(currentLang(), "common.viewers", { n: formatCount(n), count: n });
 }
 
-// uptime is how long a stream has been live, as h:mm:ss.
+// uptime is how long a stream has been live, as h:mm:ss (Persian digits in fa).
 export function uptime(startedAt: string, now: number): string {
   const s = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return localDigits(`${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`);
 }
 
 // Twitch's default chat name colors: a viewer without a chosen color gets one

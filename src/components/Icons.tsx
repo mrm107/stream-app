@@ -41,3 +41,13 @@ export const KeyIcon = (p: IconProps) =>
 
 export const ShareIcon = (p: IconProps) =>
   svg(<path d="M14 2a3 3 0 1 1-2.24 5l-3.86 2.13a3 3 0 0 1 0 1.74L11.76 13a3 3 0 1 1-.96 1.75l-3.86-2.13a3 3 0 1 1 0-5.24l3.86-2.13A3 3 0 0 1 14 2Zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM6 9a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm8 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" />, p);
+
+export const HeartIcon = (p: IconProps & { filled?: boolean }) =>
+  svg(
+    p.filled ? (
+      <path d="M10 17.5 3.3 10.8A4.2 4.2 0 0 1 9.24 4.86L10 5.62l.76-.76a4.2 4.2 0 0 1 5.94 5.94L10 17.5Z" />
+    ) : (
+      <path fillRule="evenodd" d="M10 17.5 3.3 10.8A4.2 4.2 0 0 1 9.24 4.86L10 5.62l.76-.76a4.2 4.2 0 0 1 5.94 5.94L10 17.5Zm0-2.83 5.28-5.28a2.2 2.2 0 0 0-3.11-3.11L10 8.45 7.83 6.28a2.2 2.2 0 0 0-3.11 3.11L10 14.67Z" clipRule="evenodd" />
+    ),
+    p
+  );

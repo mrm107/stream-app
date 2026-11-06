@@ -28,6 +28,8 @@ interface AuthState {
   pending: boolean;
   signIn: (s: Session) => void;
   signOut: () => void;
+  // Replace the signed-in user (after a profile change), keeping the tokens.
+  updateUser: (user: User) => void;
 }
 
 const STORAGE_KEY = "stream.session";
@@ -118,6 +120,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [signInWithEitaa]);
 
+  // Replace the stored user without touching the tokens. A functional update,
+  // so a rotation that landed meanwhile is kept.
+  const updateUser = useCallback((user: User) => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, user };
+      persist(next);
+      return next;
+    });
+  }, []);
+
   // Keep the client's in-memory tokens matching the session for explicit
   // sign-in / sign-out (rotation is already handled by the callbacks above).
   useEffect(() => {
@@ -125,6 +138,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session ? { token: session.token, refresh: session.refreshToken } : null
     );
   }, [session]);
+
+  // A saved session holds the user as of sign-in: once per signed-in user,
+  // fetch the current one (picture, name and bio may have changed since, on
+  // another device, or before these fields existed). Failures keep it as is.
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (userId === undefined) return;
+    let stale = false;
+    api.users
+      .me()
+      .then((user) => {
+        if (!stale && user.id === userId) updateUser(user);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [userId, updateUser]);
 
   const value = useMemo<AuthState>(
     () => ({
@@ -142,8 +173,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         persist(null);
         setSession(null);
       },
+      updateUser,
     }),
-    [session, pending]
+    [session, pending, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

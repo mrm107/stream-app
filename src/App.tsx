@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { loginPath } from "./auth/next";
 import { useAuth } from "./auth/AuthContext";
 import { useRouteBack, useStartParamRoute } from "./eitaa";
 import Header from "./components/Header";
@@ -13,8 +14,9 @@ import type { ReactNode } from "react";
 // RequireAuth gates creator-only routes; viewers/browse/watch stay public.
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, pending } = useAuth();
+  const { pathname, search, hash } = useLocation();
   if (pending) return null; // signing in from Eitaa; the page follows
-  return session ? <>{children}</> : <Navigate to="/login" replace />;
+  return session ? <>{children}</> : <Navigate to={loginPath(pathname + search + hash)} replace />;
 }
 
 // The shell is Twitch's: a fixed top nav, the live-channels rail on the left,

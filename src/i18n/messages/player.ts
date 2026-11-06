@@ -1,0 +1,58 @@
+import type { Msg } from "..";
+
+// The video player: controls, settings, states.
+const fa = {
+  play: "پخش",
+  pause: "توقف",
+  mute: "بی‌صدا",
+  unmute: "صدا",
+  tapToUnmute: "برای شنیدن صدا بزنید",
+  live: "زنده",
+  goLive: "برو به زنده",
+  settings: "تنظیمات",
+  fullscreen: "تمام‌صفحه",
+  exitFullscreen: "خروج از تمام‌صفحه",
+  showChat: "نمایش چت",
+  hideChat: "بستن چت",
+  quality: "کیفیت",
+  auto: "خودکار",
+  autoWith: "خودکار ({name})",
+  source: "سرور پخش",
+  sourceMain: "اصلی",
+  sourceEitaa: "ایتا",
+  connecting: "در حال اتصال…",
+  offlineBadge: "آفلاین",
+  offlineTitle: "این کانال",
+  waiting: "منتظر شروع پخش…",
+  cantPlay: "پخش این ویدیو ممکن نیست",
+  cantPlayHint: "مرورگر شما این قالب را پشتیبانی نمی‌کند.",
+} satisfies Record<string, Msg>;
+
+const en: { [K in keyof typeof fa]: Msg } = {
+  play: "Play",
+  pause: "Pause",
+  mute: "Mute",
+  unmute: "Unmute",
+  tapToUnmute: "Tap to unmute",
+  live: "LIVE",
+  goLive: "Go live",
+  settings: "Settings",
+  fullscreen: "Fullscreen",
+  exitFullscreen: "Exit fullscreen",
+  showChat: "Show chat",
+  hideChat: "Hide chat",
+  quality: "Quality",
+  auto: "Auto",
+  autoWith: "Auto ({name})",
+  source: "Server",
+  sourceMain: "Main",
+  sourceEitaa: "Eitaa",
+  connecting: "Connecting…",
+  offlineBadge: "OFFLINE",
+  offlineTitle: "This channel",
+  waiting: "Waiting for the broadcast to start…",
+  cantPlay: "Can’t play this stream",
+  cantPlayHint: "Your browser may not support this format.",
+};
+
+export default { fa, en };

@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useBackHandler } from "../eitaa";
+import { useI18n } from "../i18n";
 import Avatar from "./Avatar";
 import { KeyIcon, LogoutIcon, PersonIcon, SearchIcon, VideoIcon } from "./Icons";
 
-// Header is the Twitch-style top nav on every page: logo + Browse on the left,
-// search in the middle, and either Log In / Sign Up or the user menu on the
-// right.
+// Header is the Twitch-style top nav on every page: logo + Browse at the
+// start, search in the middle, and either the language switch + Log In /
+// Sign Up or the user menu at the end (sides follow the page direction).
 export default function Header() {
   const { session, pending, signOut } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const urlQuery = params.get("q") ?? "";
@@ -28,11 +30,11 @@ export default function Header() {
   return (
     <header className="topnav">
       <div className="topnav-left">
-        <Link to="/" className="brand" aria-label="Home">
+        <Link to="/" className="brand" aria-label={t("nav.home")}>
           <Logo />
         </Link>
         <NavLink to="/" end className="topnav-link">
-          Browse
+          {t("nav.browse")}
         </NavLink>
       </div>
 
@@ -40,10 +42,10 @@ export default function Header() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search"
-          aria-label="Search live channels"
+          placeholder={t("nav.search")}
+          aria-label={t("nav.searchLabel")}
         />
-        <button type="submit" className="search-btn" aria-label="Search">
+        <button type="submit" className="search-btn" aria-label={t("nav.search")}>
           <SearchIcon />
         </button>
       </form>
@@ -52,15 +54,17 @@ export default function Header() {
         {pending ? null : session ? (
           <UserMenu
             name={session.user.display_name || session.user.username}
+            avatar={session.user.avatar_url}
             onSignOut={signOut}
           />
         ) : (
           <>
+            <LangButton />
             <Link to="/login" className="btn btn--secondary">
-              Log In
+              {t("nav.login")}
             </Link>
             <Link to="/register" className="btn btn--primary">
-              Sign Up
+              {t("nav.signup")}
             </Link>
             <span className="topnav-guest" aria-hidden>
               <PersonIcon />
@@ -73,7 +77,16 @@ export default function Header() {
 }
 
 // UserMenu is the avatar button and its dropdown.
-function UserMenu({ name, onSignOut }: { name: string; onSignOut: () => void }) {
+function UserMenu({
+  name,
+  avatar,
+  onSignOut,
+}: {
+  name: string;
+  avatar?: string | null;
+  onSignOut: () => void;
+}) {
+  const { t, lang, setLang } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   // Eitaa's back button closes the open menu before leaving the page.
@@ -101,22 +114,33 @@ function UserMenu({ name, onSignOut }: { name: string; onSignOut: () => void }) 
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={t("nav.userMenu")}
       >
-        <Avatar name={name} size={30} />
+        <Avatar name={name} src={avatar} size={30} />
       </button>
       {open && (
         <div className="menu" role="menu">
           <div className="menu-head">
-            <Avatar name={name} size={40} />
+            <Avatar name={name} src={avatar} size={40} />
             <strong>{name}</strong>
           </div>
           <div className="menu-sep" />
           <Link to="/studio" className="menu-item" role="menuitem" onClick={() => setOpen(false)}>
-            <VideoIcon /> Creator Dashboard
+            <VideoIcon /> {t("nav.studio")}
           </Link>
           <Link to="/studio#obs" className="menu-item" role="menuitem" onClick={() => setOpen(false)}>
-            <KeyIcon /> Stream Key
+            <KeyIcon /> {t("nav.streamKey")}
           </Link>
+          <button
+            className="menu-item"
+            role="menuitem"
+            onClick={() => setLang(lang === "fa" ? "en" : "fa")}
+          >
+            <GlobeIcon /> {t("nav.language")}
+            <span className="menu-item-end" lang={lang === "fa" ? "en" : "fa"}>
+              {t("common.switchLang")}
+            </span>
+          </button>
           <div className="menu-sep" />
           <button
             className="menu-item"
@@ -126,11 +150,39 @@ function UserMenu({ name, onSignOut }: { name: string; onSignOut: () => void }) 
               onSignOut();
             }}
           >
-            <LogoutIcon /> Log Out
+            <LogoutIcon className="icon-flip" /> {t("nav.logout")}
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+// LangButton switches to the other language; guests get it in the nav bar
+// (signed-in users find it in the user menu). It's labelled in the language
+// it switches to, so it can be found by someone who can't read this one.
+function LangButton() {
+  const { t, lang, setLang } = useI18n();
+  const other = lang === "fa" ? "en" : "fa";
+  return (
+    <button
+      type="button"
+      className="btn btn--sm lang-btn"
+      lang={other}
+      onClick={() => setLang(other)}
+    >
+      {t("common.switchLang")}
+    </button>
+  );
+}
+
+// GlobeIcon marks the language item in the user menu.
+function GlobeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M2.5 10h15M10 2.5c2.2 2.3 3 4.8 3 7.5s-.8 5.2-3 7.5c-2.2-2.3-3-4.8-3-7.5s.8-5.2 3-7.5Z" />
+    </svg>
   );
 }
 
